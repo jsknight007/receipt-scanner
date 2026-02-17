@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Line-Item Entry System</title>
+    <script type="importmap">
+      { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai" } }
+    </script>
+    <style>
+        :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; }
+        body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; max-width: 600px; margin: auto; color: #333; }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        h3 { margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        video { width: 100%; border-radius: 12px; background: #000; transform: scaleX(1); }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: opacity 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; display: none; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-settings { background: #6c757d; color: white; margin-top: 20px; font-size: 12px; padding: 8px; }
+        .item-row { background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--primary); }
+        .checkbox-group { display: flex; align-items: center; gap: 10px; margin: 10px 0; font-weight: bold; }
+        #status { text-align: center; margin: 15px; font-weight: bold; color: var(--primary); }
+        #configPanel { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="configPanel" class="card">
+        <h3>⚙️ System Settings</h3>
+        <input type="password" id="apiKey" placeholder="Gemini API Key">
+        <input type="text" id="sheetUrl" placeholder="Google Apps Script URL">
+        <button class="btn-primary" onclick="saveSettings()">Save & Close</button>
+    </div>
+
+    <div class="card">
+        <h3>1. Global Metadata (Applies to all items)</h3>
+        <input type="text" id="globalStore" placeholder="Store Name (Auto-fills)">
+        <input type="date" id="globalDate">
+        <input type="text" id="paymentMethod" placeholder="Payment Method (e.g. Visa 4421)">
+        <input type="text" id="rebateNum" placeholder="Rebate Reference #">
+        <input type="number" id="discountAmt" placeholder="Discount Amount (Global)">
+        <div class="checkbox-group">
+            <input type="checkbox" id="saveImage" style="width: 20px;"> 
+            <label for="saveImage">📸 Save receipt image to Drive?</label>
+        </div>
+    </div>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    
+    <div class="btn-group">
+        <button id="snapBtn" class="btn-primary">📸 Scan Receipt</button>
+        <button id="clearBtn" class="btn-danger" onclick="resetApp()">🧹 Clear All</button>
+    </div>
+
+    <div id="status">Ready</div>
+
+    <div id="reviewSection" class="card" style="display:none;">
+        <h3>2. Line-Item Review & Category</h3>
+        <div id="itemContainer"></div>
+        <button id="sendBtn" class="btn-success">🚀 Send to Google Sheets</button>
+    </div>
+
+    <button class="btn-settings" onclick="toggleSettings()">Open Settings</button>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+
+        const snapBtn = document.getElementById('snapBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        const status = document.getElementById('status');
+        let extractedItems = [];
+        let base64Image = "";
+
+        // Start Camera
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+            .then(stream => document.getElementById('video').srcObject = stream);
+
+        // Capture and Analyze
+        snapBtn.addEventListener('click', async () => {
+            const key = localStorage.getItem('gemini_key');
+            if (!key) return alert("Open Settings to add your API Key.");
+
+            status.innerText = "⚡ AI Analyzing Layout...";
+            
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
+
+            try {
+                const genAI = new GoogleGenerativeAI(key);
+                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                
+                const prompt = `Return a JSON object for this receipt. 
+                Extract: store, date (YYYY-MM-DD), and an array 'items'. 
+                Each item needs: description, item_no, price, qty. 
+                Ignore taxes. Keep descriptions short.`;
+
+                const result = await model.generateContent([
+                    prompt, 
+                    { inlineData: { data: base64Image, mimeType: "image/jpeg" } }
+                ]);
+
+                const responseText = result.response.text().replace(/```json|```/g, "").trim();
+                const data = JSON.parse(responseText);
+
+                // Auto-fill Global
+                document.getElementById('globalStore').value = data.store || "";
+                document.getElementById('globalDate').value = data.date || "";
+                
+                extractedItems = data.items;
+                renderReview(extractedItems);
+                status.innerText = "Scan Successful. Review Line Items.";
+            } catch (err) {
+                status.innerText = "❌ Scan Failed. Ensure photo is clear.";
+                console.error(err);
+            }
+        });
+
+        function renderReview(items) {
+            const container = document.getElementById('itemContainer');
+            container.innerHTML = "";
+            items.forEach((item, i) => {
+                const div = document.createElement('div');
+                div.className = "item-row";
+                div.innerHTML = `
+                    <strong>${item.description}</strong><br>
+                    <span>$${item.price} | Qty: ${item.qty} | No: ${item.item_no || 'N/A'}</span>
+                    <input type="text" id="cat-${i}" placeholder="Enter Category/Project (Freeform)">
+                `;
+                container.appendChild(div);
+            });
+            document.getElementById('reviewSection').style.display = "block";
+            sendBtn.style.display = "block";
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        // Final Submit to Google Sheets
+        sendBtn.addEventListener('click', async () => {
+            const sheetUrl = localStorage.getItem('sheet_url');
+            if (!sheetUrl) return alert("Add your Apps Script URL in Settings.");
+
+            status.innerText = "📤 Shipping to Google Sheets...";
+
+            const payload = {
+                saveImage: document.getElementById('saveImage').checked,
+                imageFile: document.getElementById('saveImage').checked ? base64Image : null,
+                items: extractedItems.map((item, i) => ({
+                    date: document.getElementById('globalDate').value,
+                    store: document.getElementById('globalStore').value,
+                    payment: document.getElementById('paymentMethod').value,
+                    rebate: document.getElementById('rebateNum').value,
+                    discount: document.getElementById('discountAmt').value,
+                    description: item.description,
+                    item_no: item.item_no,
+                    price: item.price,
+                    qty: item.qty,
+                    category: document.getElementById(`cat-${i}`).value
+                }))
+            };
+
+            try {
+                await fetch(sheetUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify(payload)
+                });
+                status.innerText = "✅ Successfully Logged!";
+                resetApp();
+            } catch (err) {
+                status.innerText = "❌ Network Error.";
+            }
+        });
+
+        // App Utilities
+        window.resetApp = () => {
+            extractedItems = [];
+            base64Image = "";
+            document.getElementById('reviewSection').style.display = "none";
+            document.getElementById('itemContainer').innerHTML = "";
+            status.innerText = "Ready";
+        };
+
+        window.toggleSettings = () => {
+            const p = document.getElementById('configPanel');
+            p.style.display = p.style.display === 'block' ? 'none' : 'block';
+        };
+
+        window.saveSettings = () => {
+            localStorage.setItem('gemini_key', document.getElementById('apiKey').value);
+            localStorage.setItem('sheet_url', document.getElementById('sheetUrl').value);
+            toggleSettings();
+            alert("Settings Saved!");
+        };
+    </script>
+</body>
+</html>
