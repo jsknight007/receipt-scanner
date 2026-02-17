@@ -14,7 +14,6 @@
         h3 { margin-top: 0; font-size: 1rem; color: #555; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         
-        /* Camera Button Styling */
         .camera-label { background: var(--primary); color: white; padding: 20px; display: block; border-radius: 12px; cursor: pointer; font-weight: bold; text-align: center; box-shadow: 0 4px 12px rgba(0,123,255,0.3); }
         #previewContainer img { width: 100%; border-radius: 10px; margin-top: 10px; border: 1px solid #ddd; }
 
@@ -30,6 +29,9 @@
         
         #status { text-align: center; margin: 15px; font-weight: bold; color: var(--primary); min-height: 1.2em; }
         #configPanel { display: none; border: 2px solid var(--primary); }
+        
+        /* Debug Box */
+        #debugBox { display: none; background: #222; color: #0f0; padding: 10px; font-family: monospace; font-size: 11px; margin-top: 20px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -45,9 +47,9 @@
         <h3>1. Global Receipt Info</h3>
         <input type="text" id="globalStore" placeholder="Store Name (Auto-fills)">
         <input type="date" id="globalDate">
-        <input type="text" id="paymentMethod" placeholder="Payment Method (Freeform)">
+        <input type="text" id="paymentMethod" placeholder="Payment Method (e.g. Visa 1234)">
         <input type="text" id="rebateNum" placeholder="Rebate Number (Optional)">
-        <input type="number" id="discountAmt" placeholder="Global Discount ($ or %)">
+        <input type="number" id="discountAmt" placeholder="Global Discount (Optional)">
         
         <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
             <input type="checkbox" id="saveImage" style="width: 20px; height: 20px;"> 
@@ -58,10 +60,7 @@
     <div class="card">
         <label for="cameraInput" class="camera-label">📸 OPEN CAMERA & SNAP</label>
         <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
-        
-        <div id="previewContainer" style="display:none;">
-            <img id="imagePreview">
-        </div>
+        <div id="previewContainer" style="display:none;"><img id="imagePreview"></div>
     </div>
 
     <div id="status">Ready</div>
@@ -76,30 +75,30 @@
     </div>
 
     <center><button class="btn-settings" onclick="toggleSettings()">Developer Settings</button></center>
+    <div id="debugBox"></div>
 
     <script type="module">
-        import { GoogleGenerativeAI } from "@google/generative-ai";
+        import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 
         const cameraInput = document.getElementById('cameraInput');
         const imagePreview = document.getElementById('imagePreview');
         const previewContainer = document.getElementById('previewContainer');
         const status = document.getElementById('status');
+        const debugBox = document.getElementById('debugBox');
         const sendBtn = document.getElementById('sendBtn');
         
         let extractedItems = [];
         let base64Image = "";
 
-        // Handle Photo Selection
         cameraInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            // Show Preview
             imagePreview.src = URL.createObjectURL(file);
             previewContainer.style.display = "block";
-            status.innerText = "⚡ High-Res Analysis...";
+            status.innerText = "⚡ Analyzing Image...";
+            debugBox.style.display = "none";
 
-            // Convert to Base64
             const reader = new FileReader();
             reader.onloadend = async () => {
                 base64Image = reader.result.split(',')[1];
@@ -108,56 +107,57 @@
             reader.readAsDataURL(file);
         });
 
-async function analyzeImage(base64) {
-    const key = localStorage.getItem('gemini_key');
-    if (!key) return alert("Please set your API Key in Settings!");
+        async function analyzeImage(base64) {
+            const key = localStorage.getItem('gemini_key');
+            if (!key) return alert("Please set API Key in Settings!");
 
-    try {
-        const genAI = new GoogleGenerativeAI(key);
-        
-        // We set 'responseMimeType' to 'application/json' to force strict data output
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            generationConfig: { responseMimeType: "application/json" }
-        });
-        
-        const prompt = `Extract receipt data into this JSON schema:
-        {
-          "store": "string",
-          "date": "YYYY-MM-DD",
-          "items": [
-            { "description": "string", "item_no": "string", "price": number, "qty": number }
-          ]
+            try {
+                const genAI = new GoogleGenerativeAI(key);
+                
+                // SAFETY: Disable filters that block receipts with names/numbers
+                const safetySettings = [
+                    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                ];
+
+                const model = genAI.getGenerativeModel({ 
+                    model: "gemini-1.5-flash",
+                    safetySettings,
+                    generationConfig: { responseMimeType: "application/json" }
+                });
+                
+                const prompt = `OCR Task: Extract merchant, date, and items. 
+                CRITICAL: Completely ignore personal names, customer signatures, and phone numbers. 
+                Return strictly JSON: { "store": "string", "date": "YYYY-MM-DD", "items": [{ "description": "string", "item_no": "string", "price": number, "qty": number }] }`;
+
+                const result = await model.generateContent([
+                    prompt, 
+                    { inlineData: { data: base64, mimeType: "image/jpeg" } }
+                ]);
+
+                const response = await result.response;
+                const text = response.text();
+                
+                debugBox.innerText = "RAW AI RESPONSE:\n" + text;
+                debugBox.style.display = "block";
+
+                const data = JSON.parse(text);
+                document.getElementById('globalStore').value = data.store || "";
+                document.getElementById('globalDate').value = data.date || "";
+                
+                extractedItems = data.items;
+                renderReview(extractedItems);
+                status.innerText = "✅ Extraction Complete";
+            } catch (err) {
+                console.error(err);
+                debugBox.innerText = "ERROR LOG:\n" + err.toString();
+                debugBox.style.display = "block";
+                status.innerText = "❌ Analysis Error (See Debug Box)";
+            }
         }
-        Do not include tax as an item. Only return the JSON.`;
 
-        const result = await model.generateContent([
-            prompt, 
-            { inlineData: { data: base64, mimeType: "image/jpeg" } }
-        ]);
-
-        // Access the response text cleanly
-        const response = await result.response;
-        const text = response.text();
-        
-        // Try parsing the JSON
-        const data = JSON.parse(text);
-
-        // Update Global Fields
-        document.getElementById('globalStore').value = data.store || "";
-        document.getElementById('globalDate').value = data.date || "";
-        
-        extractedItems = data.items;
-        renderReview(extractedItems);
-        status.innerText = "✅ Success!";
-    } catch (err) {
-        // This log is your best friend. Check your phone's browser console if you can.
-        console.error("AI Error Details:", err);
-        status.innerText = "❌ AI Error: " + (err.message.includes('safety') ? "Blocked by safety filter" : "Check console for details");
-    }
-}
-        
-        
         function renderReview(items) {
             const container = document.getElementById('itemContainer');
             container.innerHTML = "";
@@ -169,20 +169,17 @@ async function analyzeImage(base64) {
                         <span class="item-desc">${item.description}</span>
                         $${item.price} | Qty: ${item.qty} | SKU: ${item.item_no || 'N/A'}
                     </div>
-                    <input type="text" id="cat-${i}" placeholder="Category (e.g. Project A)">
+                    <input type="text" id="cat-${i}" placeholder="Category (e.g. Lunch)">
                 `;
                 container.appendChild(div);
             });
             document.getElementById('reviewSection').style.display = "block";
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
         }
 
-        // Final Batch Submit
         sendBtn.addEventListener('click', async () => {
             const sheetUrl = localStorage.getItem('sheet_url');
             if (!sheetUrl) return alert("Set Apps Script URL in Settings!");
-
-            status.innerText = "📤 Syncing with Google Sheets...";
+            status.innerText = "📤 Sending to Sheet...";
 
             const payload = {
                 saveImage: document.getElementById('saveImage').checked,
@@ -202,19 +199,14 @@ async function analyzeImage(base64) {
             };
 
             try {
-                await fetch(sheetUrl, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify(payload)
-                });
-                status.innerText = "🚀 Data Logged Successfully!";
+                await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+                status.innerText = "🚀 Successfully Logged!";
                 setTimeout(resetApp, 2000);
             } catch (err) {
                 status.innerText = "❌ Sync Failed.";
             }
         });
 
-        // Settings & Resets
         window.resetApp = () => {
             extractedItems = [];
             base64Image = "";
@@ -233,7 +225,7 @@ async function analyzeImage(base64) {
             localStorage.setItem('gemini_key', document.getElementById('apiKey').value);
             localStorage.setItem('sheet_url', document.getElementById('sheetUrl').value);
             toggleSettings();
-            alert("Credentials Saved Locally.");
+            alert("Settings Saved Locally.");
         };
     </script>
 </body>
