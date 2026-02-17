@@ -44,9 +44,11 @@
 
     <div class="card">
         <h3>1. Trip Meta (Editable)</h3>
-        <input type="text" id="globalStore" placeholder="Store Name (AI will guess)">
+        <input type="text" id="globalStore" placeholder="Store Name">
         <input type="date" id="globalDate">
-        <input type="text" id="paymentMethod" placeholder="Payment (e.g. Visa 9695)">
+        <input type="text" id="paymentMethod" placeholder="Payment Method">
+        <input type="text" id="rebateNum" placeholder="Rebate #">
+        <input type="text" id="discountAmt" placeholder="Global Discount ($ or %)">
         <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
             <input type="checkbox" id="saveImage" style="width:20px; height:20px; margin:0;">
             <label for="saveImage" style="font-size:0.85rem;">Save photo to Drive?</label>
@@ -112,15 +114,13 @@
                 });
                 
                 const prompt = `OCR Task: Extract store, date (YYYY-MM-DD), and line items. 
-                IGNORE all personal names and phone numbers. 
-                For 'store', pick the main business name.
+                IGNORE personal names. Identify the business.
                 Return JSON: { "store": "string", "date": "string", "items": [{"description": "string", "price": number, "qty": number}] }`;
 
                 const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
                 const text = await result.response.text();
                 const data = JSON.parse(text);
 
-                // Populate Global (Editable)
                 document.getElementById('globalStore').value = data.store || "";
                 document.getElementById('globalDate').value = data.date || "";
                 
@@ -145,7 +145,7 @@
                     <div class="item-content">
                         <span class="item-desc">${item.description}</span>
                         <div class="item-meta">$${item.price} | Qty: ${item.qty}</div>
-                        <input type="text" id="cat-${i}" placeholder="Category (Project A, Food, etc.)" style="margin:0; padding:8px;">
+                        <input type="text" id="cat-${i}" placeholder="Category" style="margin:0; padding:8px;">
                     </div>
                 `;
                 container.appendChild(div);
@@ -164,6 +164,8 @@
                         date: document.getElementById('globalDate').value,
                         store: document.getElementById('globalStore').value,
                         payment: document.getElementById('paymentMethod').value,
+                        rebate: document.getElementById('rebateNum').value,
+                        discount: document.getElementById('discountAmt').value,
                         description: item.description,
                         price: item.price,
                         qty: item.qty,
@@ -179,7 +181,7 @@
                 await fetch(sheetUrl, { 
                     method: 'POST', 
                     mode: 'no-cors', 
-                    body: JSON.stringify({ items: finalItems, imageFile: base64Image }) 
+                    body: JSON.stringify({ items: finalItems, imageFile: base64Image, saveImage: document.getElementById('saveImage').checked }) 
                 });
                 status.innerText = "🚀 Success!";
                 setTimeout(resetApp, 2000);
