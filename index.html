@@ -114,41 +114,49 @@ async function analyzeImage(base64) {
 
     try {
         const genAI = new GoogleGenerativeAI(key);
-        // We add 'generationConfig' here to force strict JSON mode
+        
+        // We set 'responseMimeType' to 'application/json' to force strict data output
         const model = genAI.getGenerativeModel({ 
             model: "gemini-1.5-flash",
             generationConfig: { responseMimeType: "application/json" }
         });
         
-        // This prompt is more explicit about the structure
-        const prompt = `Extract all individual items from this receipt. 
-        Return a JSON object with: 
-        1. "store" (string)
-        2. "date" (string YYYY-MM-DD)
-        3. "items" (array of objects with "description", "item_no", "price", "qty")
-        If a field is missing, use null. Do not include tax as an item.`;
+        const prompt = `Extract receipt data into this JSON schema:
+        {
+          "store": "string",
+          "date": "YYYY-MM-DD",
+          "items": [
+            { "description": "string", "item_no": "string", "price": number, "qty": number }
+          ]
+        }
+        Do not include tax as an item. Only return the JSON.`;
 
         const result = await model.generateContent([
             prompt, 
             { inlineData: { data: base64, mimeType: "image/jpeg" } }
         ]);
 
-        // In JSON mode, we don't need to strip backticks, but we'll trim just in case
-        const responseText = result.response.text().trim();
-        const data = JSON.parse(responseText);
+        // Access the response text cleanly
+        const response = await result.response;
+        const text = response.text();
+        
+        // Try parsing the JSON
+        const data = JSON.parse(text);
 
-        // Fill Global Info
+        // Update Global Fields
         document.getElementById('globalStore').value = data.store || "";
         document.getElementById('globalDate').value = data.date || "";
         
         extractedItems = data.items;
         renderReview(extractedItems);
-        status.innerText = "✅ Extraction Complete";
+        status.innerText = "✅ Success!";
     } catch (err) {
-        status.innerText = "❌ Analysis Error. Try again.";
-        console.error("Full Error Info:", err);
+        // This log is your best friend. Check your phone's browser console if you can.
+        console.error("AI Error Details:", err);
+        status.innerText = "❌ AI Error: " + (err.message.includes('safety') ? "Blocked by safety filter" : "Check console for details");
     }
 }
+        
         
         function renderReview(items) {
             const container = document.getElementById('itemContainer');
