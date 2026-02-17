@@ -108,36 +108,48 @@
             reader.readAsDataURL(file);
         });
 
-        async function analyzeImage(base64) {
-            const key = localStorage.getItem('gemini_key');
-            if (!key) return alert("Please set your API Key in Settings!");
+async function analyzeImage(base64) {
+    const key = localStorage.getItem('gemini_key');
+    if (!key) return alert("Please set your API Key in Settings!");
 
-            try {
-                const genAI = new GoogleGenerativeAI(key);
-                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-                
-                const prompt = "Extract receipt items. Return ONLY JSON: { \"store\": \"name\", \"date\": \"YYYY-MM-DD\", \"items\": [ { \"description\": \"name\", \"item_no\": \"sku\", \"price\": 0.00, \"qty\": 1 } ] }. Ignore taxes.";
+    try {
+        const genAI = new GoogleGenerativeAI(key);
+        // We add 'generationConfig' here to force strict JSON mode
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            generationConfig: { responseMimeType: "application/json" }
+        });
+        
+        // This prompt is more explicit about the structure
+        const prompt = `Extract all individual items from this receipt. 
+        Return a JSON object with: 
+        1. "store" (string)
+        2. "date" (string YYYY-MM-DD)
+        3. "items" (array of objects with "description", "item_no", "price", "qty")
+        If a field is missing, use null. Do not include tax as an item.`;
 
-                const result = await model.generateContent([
-                    prompt, 
-                    { inlineData: { data: base64, mimeType: "image/jpeg" } }
-                ]);
+        const result = await model.generateContent([
+            prompt, 
+            { inlineData: { data: base64, mimeType: "image/jpeg" } }
+        ]);
 
-                const responseText = result.response.text().replace(/```json|```/g, "").trim();
-                const data = JSON.parse(responseText);
+        // In JSON mode, we don't need to strip backticks, but we'll trim just in case
+        const responseText = result.response.text().trim();
+        const data = JSON.parse(responseText);
 
-                document.getElementById('globalStore').value = data.store || "";
-                document.getElementById('globalDate').value = data.date || "";
-                
-                extractedItems = data.items;
-                renderReview(extractedItems);
-                status.innerText = "✅ Extraction Complete";
-            } catch (err) {
-                status.innerText = "❌ AI Error. Try a closer shot.";
-                console.error(err);
-            }
-        }
-
+        // Fill Global Info
+        document.getElementById('globalStore').value = data.store || "";
+        document.getElementById('globalDate').value = data.date || "";
+        
+        extractedItems = data.items;
+        renderReview(extractedItems);
+        status.innerText = "✅ Extraction Complete";
+    } catch (err) {
+        status.innerText = "❌ Analysis Error. Try again.";
+        console.error("Full Error Info:", err);
+    }
+}
+        
         function renderReview(items) {
             const container = document.getElementById('itemContainer');
             container.innerHTML = "";
