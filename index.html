@@ -2,126 +2,141 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Line-Item Entry System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Line-Item Ledger</title>
     <script type="importmap">
       { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai" } }
     </script>
     <style>
-        :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; }
-        body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; max-width: 600px; margin: auto; color: #333; }
-        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; }
-        h3 { margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; --gray: #6c757d; }
+        body { font-family: -apple-system, system-ui, sans-serif; padding: 15px; background: #f0f2f5; max-width: 500px; margin: auto; color: #333; line-height: 1.4; }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; }
+        h3 { margin-top: 0; font-size: 1rem; color: #555; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        video { width: 100%; border-radius: 12px; background: #000; transform: scaleX(1); }
-        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        button { width: 100%; padding: 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: opacity 0.2s; }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-success { background: var(--success); color: white; display: none; }
-        .btn-danger { background: var(--danger); color: white; }
-        .btn-settings { background: #6c757d; color: white; margin-top: 20px; font-size: 12px; padding: 8px; }
-        .item-row { background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--primary); }
-        .checkbox-group { display: flex; align-items: center; gap: 10px; margin: 10px 0; font-weight: bold; }
-        #status { text-align: center; margin: 15px; font-weight: bold; color: var(--primary); }
-        #configPanel { display: none; }
+        
+        /* Camera Button Styling */
+        .camera-label { background: var(--primary); color: white; padding: 20px; display: block; border-radius: 12px; cursor: pointer; font-weight: bold; text-align: center; box-shadow: 0 4px 12px rgba(0,123,255,0.3); }
+        #previewContainer img { width: 100%; border-radius: 10px; margin-top: 10px; border: 1px solid #ddd; }
+
+        .item-row { background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--primary); }
+        .item-info { font-size: 0.9rem; margin-bottom: 5px; }
+        .item-desc { font-weight: bold; display: block; margin-bottom: 2px; }
+
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: #e9ecef; color: var(--danger); }
+        .btn-settings { background: none; color: var(--gray); font-size: 13px; text-decoration: underline; margin-top: 20px; }
+        
+        #status { text-align: center; margin: 15px; font-weight: bold; color: var(--primary); min-height: 1.2em; }
+        #configPanel { display: none; border: 2px solid var(--primary); }
     </style>
 </head>
 <body>
 
     <div id="configPanel" class="card">
-        <h3>⚙️ System Settings</h3>
+        <h3>⚙️ Connection Settings</h3>
         <input type="password" id="apiKey" placeholder="Gemini API Key">
         <input type="text" id="sheetUrl" placeholder="Google Apps Script URL">
-        <button class="btn-primary" onclick="saveSettings()">Save & Close</button>
+        <button class="btn-success" onclick="saveSettings()">Save Settings</button>
     </div>
 
     <div class="card">
-        <h3>1. Global Metadata (Applies to all items)</h3>
+        <h3>1. Global Receipt Info</h3>
         <input type="text" id="globalStore" placeholder="Store Name (Auto-fills)">
         <input type="date" id="globalDate">
-        <input type="text" id="paymentMethod" placeholder="Payment Method (e.g. Visa 4421)">
-        <input type="text" id="rebateNum" placeholder="Rebate Reference #">
-        <input type="number" id="discountAmt" placeholder="Discount Amount (Global)">
-        <div class="checkbox-group">
-            <input type="checkbox" id="saveImage" style="width: 20px;"> 
-            <label for="saveImage">📸 Save receipt image to Drive?</label>
+        <input type="text" id="paymentMethod" placeholder="Payment Method (Freeform)">
+        <input type="text" id="rebateNum" placeholder="Rebate Number (Optional)">
+        <input type="number" id="discountAmt" placeholder="Global Discount ($ or %)">
+        
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+            <input type="checkbox" id="saveImage" style="width: 20px; height: 20px;"> 
+            <label for="saveImage" style="font-size: 0.9rem;">💾 Save photo to Google Drive?</label>
         </div>
     </div>
 
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas" style="display:none;"></canvas>
-    
-    <div class="btn-group">
-        <button id="snapBtn" class="btn-primary">📸 Scan Receipt</button>
-        <button id="clearBtn" class="btn-danger" onclick="resetApp()">🧹 Clear All</button>
+    <div class="card">
+        <label for="cameraInput" class="camera-label">📸 OPEN CAMERA & SNAP</label>
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
+        
+        <div id="previewContainer" style="display:none;">
+            <img id="imagePreview">
+        </div>
     </div>
 
     <div id="status">Ready</div>
 
     <div id="reviewSection" class="card" style="display:none;">
-        <h3>2. Line-Item Review & Category</h3>
+        <h3>2. Item Category Review</h3>
         <div id="itemContainer"></div>
-        <button id="sendBtn" class="btn-success">🚀 Send to Google Sheets</button>
+        <div class="btn-group">
+            <button class="btn-danger" onclick="resetApp()">Clear</button>
+            <button id="sendBtn" class="btn-success">Push to Sheet</button>
+        </div>
     </div>
 
-    <button class="btn-settings" onclick="toggleSettings()">Open Settings</button>
+    <center><button class="btn-settings" onclick="toggleSettings()">Developer Settings</button></center>
 
     <script type="module">
         import { GoogleGenerativeAI } from "@google/generative-ai";
 
-        const snapBtn = document.getElementById('snapBtn');
-        const sendBtn = document.getElementById('sendBtn');
+        const cameraInput = document.getElementById('cameraInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const previewContainer = document.getElementById('previewContainer');
         const status = document.getElementById('status');
+        const sendBtn = document.getElementById('sendBtn');
+        
         let extractedItems = [];
         let base64Image = "";
 
-        // Start Camera
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-            .then(stream => document.getElementById('video').srcObject = stream);
+        // Handle Photo Selection
+        cameraInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-        // Capture and Analyze
-        snapBtn.addEventListener('click', async () => {
+            // Show Preview
+            imagePreview.src = URL.createObjectURL(file);
+            previewContainer.style.display = "block";
+            status.innerText = "⚡ High-Res Analysis...";
+
+            // Convert to Base64
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                base64Image = reader.result.split(',')[1];
+                await analyzeImage(base64Image);
+            };
+            reader.readAsDataURL(file);
+        });
+
+        async function analyzeImage(base64) {
             const key = localStorage.getItem('gemini_key');
-            if (!key) return alert("Open Settings to add your API Key.");
-
-            status.innerText = "⚡ AI Analyzing Layout...";
-            
-            const video = document.getElementById('video');
-            const canvas = document.getElementById('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-            base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
+            if (!key) return alert("Please set your API Key in Settings!");
 
             try {
                 const genAI = new GoogleGenerativeAI(key);
                 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
                 
-                const prompt = `Return a JSON object for this receipt. 
-                Extract: store, date (YYYY-MM-DD), and an array 'items'. 
-                Each item needs: description, item_no, price, qty. 
-                Ignore taxes. Keep descriptions short.`;
+                const prompt = "Extract receipt items. Return ONLY JSON: { \"store\": \"name\", \"date\": \"YYYY-MM-DD\", \"items\": [ { \"description\": \"name\", \"item_no\": \"sku\", \"price\": 0.00, \"qty\": 1 } ] }. Ignore taxes.";
 
                 const result = await model.generateContent([
                     prompt, 
-                    { inlineData: { data: base64Image, mimeType: "image/jpeg" } }
+                    { inlineData: { data: base64, mimeType: "image/jpeg" } }
                 ]);
 
                 const responseText = result.response.text().replace(/```json|```/g, "").trim();
                 const data = JSON.parse(responseText);
 
-                // Auto-fill Global
                 document.getElementById('globalStore').value = data.store || "";
                 document.getElementById('globalDate').value = data.date || "";
                 
                 extractedItems = data.items;
                 renderReview(extractedItems);
-                status.innerText = "Scan Successful. Review Line Items.";
+                status.innerText = "✅ Extraction Complete";
             } catch (err) {
-                status.innerText = "❌ Scan Failed. Ensure photo is clear.";
+                status.innerText = "❌ AI Error. Try a closer shot.";
                 console.error(err);
             }
-        });
+        }
 
         function renderReview(items) {
             const container = document.getElementById('itemContainer');
@@ -130,23 +145,24 @@
                 const div = document.createElement('div');
                 div.className = "item-row";
                 div.innerHTML = `
-                    <strong>${item.description}</strong><br>
-                    <span>$${item.price} | Qty: ${item.qty} | No: ${item.item_no || 'N/A'}</span>
-                    <input type="text" id="cat-${i}" placeholder="Enter Category/Project (Freeform)">
+                    <div class="item-info">
+                        <span class="item-desc">${item.description}</span>
+                        $${item.price} | Qty: ${item.qty} | SKU: ${item.item_no || 'N/A'}
+                    </div>
+                    <input type="text" id="cat-${i}" placeholder="Category (e.g. Project A)">
                 `;
                 container.appendChild(div);
             });
             document.getElementById('reviewSection').style.display = "block";
-            sendBtn.style.display = "block";
-            window.scrollTo(0, document.body.scrollHeight);
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
         }
 
-        // Final Submit to Google Sheets
+        // Final Batch Submit
         sendBtn.addEventListener('click', async () => {
             const sheetUrl = localStorage.getItem('sheet_url');
-            if (!sheetUrl) return alert("Add your Apps Script URL in Settings.");
+            if (!sheetUrl) return alert("Set Apps Script URL in Settings!");
 
-            status.innerText = "📤 Shipping to Google Sheets...";
+            status.innerText = "📤 Syncing with Google Sheets...";
 
             const payload = {
                 saveImage: document.getElementById('saveImage').checked,
@@ -171,19 +187,20 @@
                     mode: 'no-cors',
                     body: JSON.stringify(payload)
                 });
-                status.innerText = "✅ Successfully Logged!";
-                resetApp();
+                status.innerText = "🚀 Data Logged Successfully!";
+                setTimeout(resetApp, 2000);
             } catch (err) {
-                status.innerText = "❌ Network Error.";
+                status.innerText = "❌ Sync Failed.";
             }
         });
 
-        // App Utilities
+        // Settings & Resets
         window.resetApp = () => {
             extractedItems = [];
             base64Image = "";
             document.getElementById('reviewSection').style.display = "none";
-            document.getElementById('itemContainer').innerHTML = "";
+            document.getElementById('previewContainer').style.display = "none";
+            document.getElementById('cameraInput').value = "";
             status.innerText = "Ready";
         };
 
@@ -196,7 +213,7 @@
             localStorage.setItem('gemini_key', document.getElementById('apiKey').value);
             localStorage.setItem('sheet_url', document.getElementById('sheetUrl').value);
             toggleSettings();
-            alert("Settings Saved!");
+            alert("Credentials Saved Locally.");
         };
     </script>
 </body>
