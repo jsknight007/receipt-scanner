@@ -3,47 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Ledger 2026</title>
+    <title>AI Ledger 3.0</title>
     <script type="importmap">
       { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } }
     </script>
     <style>
-        :root { --primary: #6366f1; --success: #22c55e; --danger: #ef4444; --bg: #f8fafc; }
-        body { font-family: -apple-system, system-ui, sans-serif; padding: 15px; background: var(--bg); max-width: 500px; margin: auto; color: #1e293b; }
+        :root { --primary: #6366f1; --success: #22c55e; --danger: #ef4444; --slate: #1e293b; }
+        body { font-family: -apple-system, system-ui, sans-serif; padding: 15px; background: #f8fafc; max-width: 500px; margin: auto; color: var(--slate); }
         .card { background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 15px; border: 1px solid #e2e8f0; }
         h3 { margin-top: 0; font-size: 0.85rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 12px; }
         input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #cbd5e1; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
         
-        .camera-btn { background: var(--primary); color: white; padding: 20px; display: block; border-radius: 12px; cursor: pointer; font-weight: bold; text-align: center; transition: transform 0.1s; }
-        .camera-btn:active { transform: scale(0.98); }
+        .camera-btn { background: var(--primary); color: white; padding: 20px; display: block; border-radius: 12px; cursor: pointer; font-weight: bold; text-align: center; }
         #previewContainer img { width: 100%; border-radius: 12px; margin-top: 10px; border: 1px solid #e2e8f0; }
 
-        .item-row { background: #f1f5f9; padding: 12px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid var(--primary); }
+        .item-row { background: #f1f5f9; padding: 12px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid var(--primary); display: flex; align-items: flex-start; gap: 12px; }
+        .item-check { width: 28px; height: 28px; margin-top: 4px; accent-color: var(--success); }
+        .item-content { flex-grow: 1; }
         .item-desc { font-weight: 600; display: block; font-size: 0.95rem; }
-        .item-meta { font-size: 0.8rem; color: #64748b; }
+        .item-meta { font-size: 0.8rem; color: #64748b; margin-bottom: 5px; }
 
         .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
         button { width: 100%; padding: 14px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 16px; }
         .btn-success { background: var(--success); color: white; }
-        .btn-danger { background: #f1f5f9; color: var(--danger); }
+        .btn-danger { background: #e2e8f0; color: var(--danger); }
         
-        #status { text-align: center; margin: 15px; font-weight: 600; color: var(--primary); font-size: 0.9rem; }
+        #status { text-align: center; margin: 15px; font-weight: 600; color: var(--primary); }
         #configPanel { display: none; background: #fffbeb; border: 2px solid #fbbf24; }
-        #debugBox { display: none; background: #0f172a; color: #38bdf8; padding: 12px; font-family: 'Courier New', monospace; font-size: 11px; margin-top: 20px; border-radius: 10px; overflow-x: auto; }
+        #debugBox { display: none; background: #0f172a; color: #38bdf8; padding: 12px; font-family: monospace; font-size: 11px; margin-top: 20px; border-radius: 10px; overflow-x: auto; white-space: pre-wrap; }
     </style>
 </head>
 <body>
 
     <div id="configPanel" class="card">
-        <h3>⚙️ Setup</h3>
+        <h3>⚙️ Connection Setup</h3>
         <input type="password" id="apiKey" placeholder="Gemini API Key">
-        <input type="text" id="sheetUrl" placeholder="Apps Script URL">
-        <button class="btn-success" onclick="saveSettings()">Save & Close</button>
+        <input type="text" id="sheetUrl" placeholder="Google Apps Script URL">
+        <button class="btn-success" onclick="saveSettings()">Save Settings</button>
     </div>
 
     <div class="card">
-        <h3>1. Trip Details</h3>
-        <input type="text" id="globalStore" placeholder="Store Name">
+        <h3>1. Trip Meta (Editable)</h3>
+        <input type="text" id="globalStore" placeholder="Store Name (AI will guess)">
         <input type="date" id="globalDate">
         <input type="text" id="paymentMethod" placeholder="Payment (e.g. Visa 9695)">
         <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
@@ -53,7 +54,7 @@
     </div>
 
     <div class="card">
-        <label for="cameraInput" class="camera-btn">📸 SNAP HIGH-RES PHOTO</label>
+        <label for="cameraInput" class="camera-btn">📸 SNAP RECEIPT</label>
         <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
         <div id="previewContainer" style="display:none;"><img id="imagePreview"></div>
     </div>
@@ -61,15 +62,15 @@
     <div id="status">Ready</div>
 
     <div id="reviewSection" class="card" style="display:none;">
-        <h3>2. Review Items</h3>
+        <h3>2. Review & Filter Items</h3>
         <div id="itemContainer"></div>
         <div class="btn-group">
-            <button class="btn-danger" onclick="resetApp()">Discard</button>
-            <button id="sendBtn" class="btn-success">Upload to Sheets</button>
+            <button class="btn-danger" onclick="resetApp()">Discard All</button>
+            <button id="sendBtn" class="btn-success">Sync to Sheet</button>
         </div>
     </div>
 
-    <center><button style="background:none; color:#94a3b8; font-size:12px; text-decoration:underline;" onclick="toggleSettings()">Open Settings</button></center>
+    <center><button style="background:none; color:#94a3b8; font-size:12px; text-decoration:underline; border:none; cursor:pointer;" onclick="toggleSettings()">Developer Settings</button></center>
     <div id="debugBox"></div>
 
     <script type="module">
@@ -87,12 +88,9 @@
         cameraInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-
             imagePreview.src = URL.createObjectURL(file);
             previewContainer.style.display = "block";
-            status.innerText = "⚡ Gemini 3 Analyzing...";
-            debugBox.style.display = "none";
-
+            status.innerText = "⚡ Gemini 3 Analysis...";
             const reader = new FileReader();
             reader.onloadend = async () => {
                 base64Image = reader.result.split(',')[1];
@@ -103,51 +101,36 @@
 
         async function analyzeImage(base64) {
             const key = localStorage.getItem('gemini_key');
-            if (!key) return alert("Enter API Key in Settings!");
+            if (!key) return alert("Missing API Key!");
 
             try {
                 const genAI = new GoogleGenerativeAI(key);
-                
-                // Modern Safety Settings for OCR
-                const safetySettings = [
-                    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
-                ];
-
-                // Use the new Gemini 3 Flash model
                 const model = genAI.getGenerativeModel({ 
                     model: "gemini-3-flash-preview", 
-                    safetySettings,
+                    safetySettings: [{ category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE }],
                     generationConfig: { responseMimeType: "application/json" }
                 });
                 
-                const prompt = `OCR: Extract store, date (YYYY-MM-DD), and line items. 
+                const prompt = `OCR Task: Extract store, date (YYYY-MM-DD), and line items. 
                 IGNORE all personal names and phone numbers. 
+                For 'store', pick the main business name.
                 Return JSON: { "store": "string", "date": "string", "items": [{"description": "string", "price": number, "qty": number}] }`;
 
-                const result = await model.generateContent([
-                    prompt, 
-                    { inlineData: { data: base64, mimeType: "image/jpeg" } }
-                ]);
-
+                const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
                 const text = await result.response.text();
-                debugBox.innerText = "RAW RESPONSE:\n" + text;
-                debugBox.style.display = "block";
-
                 const data = JSON.parse(text);
+
+                // Populate Global (Editable)
                 document.getElementById('globalStore').value = data.store || "";
                 document.getElementById('globalDate').value = data.date || "";
                 
                 extractedItems = data.items;
                 renderReview(extractedItems);
-                status.innerText = "✅ Done!";
+                status.innerText = "✅ Items Found";
             } catch (err) {
-                console.error(err);
-                debugBox.innerText = "ERROR:\n" + err.message;
+                debugBox.innerText = err.toString();
                 debugBox.style.display = "block";
-                status.innerText = "❌ Model Error - Check Debug Box";
+                status.innerText = "❌ Analysis Error";
             }
         }
 
@@ -158,9 +141,12 @@
                 const div = document.createElement('div');
                 div.className = "item-row";
                 div.innerHTML = `
-                    <span class="item-desc">${item.description}</span>
-                    <div class="item-meta">$${item.price} | Qty: ${item.qty}</div>
-                    <input type="text" id="cat-${i}" placeholder="Category (e.g. Supplies)">
+                    <input type="checkbox" class="item-check" checked id="check-${i}">
+                    <div class="item-content">
+                        <span class="item-desc">${item.description}</span>
+                        <div class="item-meta">$${item.price} | Qty: ${item.qty}</div>
+                        <input type="text" id="cat-${i}" placeholder="Category (Project A, Food, etc.)" style="margin:0; padding:8px;">
+                    </div>
                 `;
                 container.appendChild(div);
             });
@@ -169,27 +155,35 @@
 
         document.getElementById('sendBtn').addEventListener('click', async () => {
             const sheetUrl = localStorage.getItem('sheet_url');
-            status.innerText = "📤 Pushing to Sheets...";
+            if (!sheetUrl) return alert("Missing Sheet URL!");
 
-            const payload = {
-                saveImage: document.getElementById('saveImage').checked,
-                imageFile: base64Image,
-                items: extractedItems.map((item, i) => ({
-                    date: document.getElementById('globalDate').value,
-                    store: document.getElementById('globalStore').value,
-                    payment: document.getElementById('paymentMethod').value,
-                    description: item.description,
-                    price: item.price,
-                    qty: item.qty,
-                    category: document.getElementById(`cat-${i}`).value
-                }))
-            };
+            const finalItems = [];
+            extractedItems.forEach((item, i) => {
+                if (document.getElementById(`check-${i}`).checked) {
+                    finalItems.push({
+                        date: document.getElementById('globalDate').value,
+                        store: document.getElementById('globalStore').value,
+                        payment: document.getElementById('paymentMethod').value,
+                        description: item.description,
+                        price: item.price,
+                        qty: item.qty,
+                        category: document.getElementById(`cat-${i}`).value
+                    });
+                }
+            });
+
+            if (finalItems.length === 0) return alert("No items selected!");
+            status.innerText = `📤 Syncing ${finalItems.length} items...`;
 
             try {
-                await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+                await fetch(sheetUrl, { 
+                    method: 'POST', 
+                    mode: 'no-cors', 
+                    body: JSON.stringify({ items: finalItems, imageFile: base64Image }) 
+                });
                 status.innerText = "🚀 Success!";
                 setTimeout(resetApp, 2000);
-            } catch (err) { status.innerText = "❌ Sheet Error."; }
+            } catch (err) { status.innerText = "❌ Sync Failed."; }
         });
 
         window.resetApp = () => {
