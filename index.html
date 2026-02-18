@@ -3,10 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Ledger Pro 3.8</title>
+    <title>AI Ledger Pro 3.8.1</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjEyOCIgZmlsbD0iIzYzNjZmMSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTUlIiBkb21pbmFbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmedG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBmb250LXNpemU9IjMwMCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiPiQ8L3RleHQ+PC9zdmc+">
+
     <script type="importmap">
       { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } }
     </script>
+
     <style>
         :root { --primary: #6366f1; --success: #22c55e; --danger: #ef4444; --slate: #1e293b; }
         body { font-family: -apple-system, system-ui, sans-serif; padding: 10px; background: #f1f5f9; max-width: 600px; margin: auto; color: var(--slate); }
@@ -30,17 +38,6 @@
         .cat-chip { background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 6px; font-size: 10px; cursor: pointer; border: 1px solid #e2e8f0; }
         .warning-label { color: var(--danger); font-size: 9px; }
     </style>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#6366f1">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="apple-touch-icon" href="icon-192.png">
-
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
-      }
-    </script>
 </head>
 <body>
 
@@ -56,7 +53,7 @@
         <div class="grid-2">
             <div><label>Store</label><input type="text" id="globalStore" placeholder="Store Name"></div>
             <div>
-                <label>Date <span class="warning-label">(Manual entry if blank)</span></label>
+                <label>Date <span class="warning-label">(Manual if blank)</span></label>
                 <input type="date" id="globalDate">
             </div>
         </div>
@@ -100,7 +97,12 @@
         let localItems = [];
         let base64Image = "";
 
-        // Helper: Format OCR dates for HTML input
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator && location.protocol === 'https:') {
+            navigator.serviceWorker.register('sw.js');
+        }
+
+        // --- HELPERS ---
         function formatToHTMLDate(rawDate) {
             if (!rawDate) return "";
             let clean = rawDate.replace(/[^\d\-/]/g, '').replace(/\//g, '-');
@@ -110,10 +112,9 @@
                 if (parts[2].length === 4) return `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
                 if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
             }
-            return clean;
+            return "";
         }
 
-        // Initialize Payment History Chips
         function renderPaymentHistory() {
             const history = JSON.parse(localStorage.getItem('pay_history') || "[]");
             const container = document.getElementById('payment-history-container');
@@ -121,12 +122,13 @@
         }
         renderPaymentHistory();
 
+        // --- CORE LOGIC ---
         document.getElementById('cameraInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
             document.getElementById('imagePreview').src = URL.createObjectURL(file);
             document.getElementById('previewContainer').style.display = "block";
-            document.getElementById('status').innerText = "🧠 Analyzing Image...";
+            document.getElementById('status').innerText = "🧠 Deep Scanning...";
             const reader = new FileReader();
             reader.onloadend = async () => {
                 base64Image = reader.result.split(',')[1];
@@ -145,19 +147,22 @@
                 });
 
                 const prompt = `OCR Extract: Store Name, Transaction Date, and items. 
-                Return JSON only: {"store": "str", "date": "YYYY-MM-DD", "items": [{"itemNo": "str", "desc": "str", "qty": num, "unit": num, "total": num, "isTaxable": bool}]}`;
+                Return JSON strictly: {"store": "str", "date": "YYYY-MM-DD", "items": [{"itemNo": "str", "desc": "str", "qty": num, "unit": num, "total": num, "isTaxable": bool}]}`;
 
                 const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
                 let text = await result.response.text();
                 const data = JSON.parse(text.replace(/```json|```/g, "").trim());
 
                 document.getElementById('globalStore').value = data.store || "";
-                if(data.date) document.getElementById('globalDate').value = formatToHTMLDate(data.date);
+                if(data.date) {
+                    const healed = formatToHTMLDate(data.date);
+                    if(healed) document.getElementById('globalDate').value = healed;
+                }
                 
                 localItems = data.items;
                 renderReview();
                 document.getElementById('status').innerText = "✅ Scan Success";
-            } catch (err) { document.getElementById('status').innerText = "❌ Parse Error"; }
+            } catch (err) { document.getElementById('status').innerText = "❌ Scan Failed"; }
         }
 
         window.renderReview = () => {
@@ -279,6 +284,8 @@
             localStorage.setItem('sheet_url', document.getElementById('sheetUrl').value);
             document.getElementById('configPanel').style.display='none';
         };
+
+        if(!localStorage.getItem('gemini_key')) document.getElementById('configPanel').style.display='block';
     </script>
 </body>
 </html>
