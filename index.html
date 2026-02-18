@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Ledger Pro 3.3</title>
+    <title>AI Ledger Pro 3.5</title>
     <script type="importmap">
       { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } }
     </script>
@@ -26,6 +26,11 @@
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: #e2e8f0; color: var(--danger); }
         #status { text-align: center; margin: 10px; font-weight: 600; color: var(--primary); }
+        
+        /* Category Chips Styling */
+        .chip-container { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .cat-chip { background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 6px; font-size: 10px; cursor: pointer; border: 1px solid #e2e8f0; transition: all 0.2s; }
+        .cat-chip:hover { background: var(--primary); color: white; border-color: var(--primary); }
     </style>
 </head>
 <body>
@@ -38,7 +43,7 @@
     </div>
 
     <div class="card">
-        <h3>1. Global Trip Meta</h3>
+        <h3>1. Trip Meta</h3>
         <div class="grid-2">
             <input type="text" id="globalStore" placeholder="Store">
             <input type="date" id="globalDate">
@@ -65,7 +70,7 @@
     <div id="status">Ready</div>
 
     <div id="reviewSection" style="display:none;">
-        <h3>2. Item Review & Calculations</h3>
+        <h3>2. Line Item Ledger</h3>
         <div id="itemContainer"></div>
         <div class="btn-group">
             <button class="btn-danger" onclick="clearAllFields()">Discard / Reset</button>
@@ -84,7 +89,7 @@
             if (!file) return;
             document.getElementById('imagePreview').src = URL.createObjectURL(file);
             document.getElementById('previewContainer').style.display = "block";
-            document.getElementById('status').innerText = "🧠 Analyzing Image...";
+            document.getElementById('status').innerText = "🧠 Scanning...";
             const reader = new FileReader();
             reader.onloadend = async () => {
                 base64Image = reader.result.split(',')[1];
@@ -95,7 +100,6 @@
 
         async function analyzeImage(base64) {
             const key = localStorage.getItem('gemini_key');
-            if (!key) return alert("Please set API Key in Settings!");
             try {
                 const genAI = new GoogleGenerativeAI(key);
                 const model = genAI.getGenerativeModel({ 
@@ -103,9 +107,9 @@
                     generationConfig: { responseMimeType: "application/json" }
                 });
 
-                const prompt = `OCR: Extract Store, Date, and items. 
-                For each item: item_no, description, category, qty, unit_price, total_line_cost. 
-                Return JSON only. Format: {"store": "str", "date": "str", "items": [{"itemNo": "str", "desc": "str", "cat": "str", "qty": num, "unit": num, "total": num, "isTaxable": bool}]}`;
+                const prompt = `OCR: Extract Store, Date, and detailed items. 
+                For each item: item_no, description, qty, unit_price, total_line_cost. 
+                Return JSON only. Format: {"store": "str", "date": "str", "items": [{"itemNo": "str", "desc": "str", "qty": num, "unit": num, "total": num, "isTaxable": bool}]}`;
 
                 const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
                 let text = await result.response.text();
@@ -116,19 +120,25 @@
                 document.getElementById('globalDate').value = data.date || "";
                 localItems = data.items;
                 renderReview();
-                document.getElementById('status').innerText = "✅ Analysis Done";
+                document.getElementById('status').innerText = "✅ Scan Success";
             } catch (err) { 
-                document.getElementById('status').innerText = "❌ Analysis Error"; 
+                document.getElementById('status').innerText = "❌ AI Parse Error"; 
             }
         }
 
         window.renderReview = () => {
-            const container = document.getElementById('itemContainer'); container.innerHTML = "";
+            const container = document.getElementById('itemContainer'); 
+            container.innerHTML = "";
             const defTax = document.getElementById('defaultTax').value;
             const defRebate = document.getElementById('globalRebate').value;
+            const history = JSON.parse(localStorage.getItem('cat_history') || "[]");
 
             localItems.forEach((item, i) => {
                 const div = document.createElement('div'); div.className = "item-row";
+                
+                // Create chips HTML
+                let chipsHtml = history.map(cat => `<div class="cat-chip" onclick="setCat(${i}, '${cat}')">${cat}</div>`).join('');
+
                 div.innerHTML = `
                     <div style="display:flex; gap:10px; align-items:center;">
                         <input type="checkbox" checked id="sync-${i}" style="width:20px; height:20px; margin:0;">
@@ -136,7 +146,11 @@
                     </div>
                     <div class="grid-2" style="margin-top:8px;">
                         <div><label>Item # / SKU</label><input type="text" value="${item.itemNo || ''}" id="no-${i}"></div>
-                        <div><label>Category</label><input type="text" value="${item.cat || ''}" id="cat-${i}"></div>
+                        <div>
+                            <label>Category (Manual)</label>
+                            <input type="text" value="" id="cat-${i}" placeholder="Enter Cat...">
+                            <div class="chip-container">${chipsHtml}</div>
+                        </div>
                     </div>
                     <div class="grid-3" style="margin-top:8px;">
                         <div><label>Qty</label><input type="number" value="${item.qty || 1}" id="qty-${i}" oninput="recalc(${i})"></div>
@@ -154,75 +168,81 @@
             document.getElementById('reviewSection').style.display = "block";
         }
 
+        window.setCat = (index, value) => {
+            document.getElementById(`cat-${index}`).value = value;
+        };
+
         window.recalc = (i) => {
             const baseInput = document.getElementById(`base-${i}`);
             const qty = parseFloat(document.getElementById(`qty-${i}`).value) || 1;
             const unit = parseFloat(document.getElementById(`unit-${i}`).value) || 0;
-            
             if (document.activeElement !== baseInput) { baseInput.value = (qty * unit).toFixed(2); }
-            
             const base = parseFloat(baseInput.value) || 0;
             const taxR = parseFloat(document.getElementById(`taxR-${i}`).value) || 0;
             const rebRaw = document.getElementById(`rebR-${i}`).value;
-            
-            // MATH ROUNDING TO PENNY
             const taxAmt = Math.round(base * (taxR / 100) * 100) / 100;
             const pricePlusTax = Math.round((base + taxAmt) * 100) / 100;
-            
-            const rebAmt = rebRaw.includes('%') 
-                ? Math.round(base * (parseFloat(rebRaw) / 100) * 100) / 100 
-                : Math.round((parseFloat(rebRaw) || 0) * 100) / 100;
+            const rebAmt = rebRaw.includes('%') ? Math.round(base * (parseFloat(rebRaw) / 100) * 100) / 100 : Math.round((parseFloat(rebRaw) || 0) * 100) / 100;
             
             // Formula: (Price + Tax) - Rebate
             const finalCost = Math.round((pricePlusTax - rebAmt) * 100) / 100;
 
             document.getElementById(`results-${i}`).innerHTML = `
                 <b>Final Cost: $${finalCost.toFixed(2)}</b><br>
-                <small>Math: ($${pricePlusTax.toFixed(2)} with tax) - $${rebAmt.toFixed(2)} rebate</small>
+                <small>Math: ($${pricePlusTax.toFixed(2)} w/ tax) - $${rebAmt.toFixed(2)} reb</small>
             `;
             localItems[i].calculated = { pricePlusTax, rebAmt, finalCost };
         }
 
         document.getElementById('sendBtn').addEventListener('click', async () => {
             const sheetUrl = localStorage.getItem('sheet_url');
-            const dataToSend = localItems.filter((_, i) => document.getElementById(`sync-${i}`).checked).map((item, i) => ({
-                date: document.getElementById('globalDate').value,
-                store: document.getElementById('globalStore').value,
-                payment: document.getElementById('paymentMethod').value,
-                rebateID: document.getElementById('rebateNum').value,
-                itemNo: document.getElementById(`no-${i}`).value,
-                description: document.getElementById(`desc-${i}`).value,
-                category: document.getElementById(`cat-${i}`).value,
-                qty: document.getElementById(`qty-${i}`).value,
-                unitPrice: document.getElementById(`unit-${i}`).value,
-                baseTotal: document.getElementById(`base-${i}`).value,
-                taxRate: document.getElementById(`taxR-${i}`).value,
-                pricePlusTax: item.calculated.pricePlusTax.toFixed(2),
-                rebateApplied: item.calculated.rebAmt.toFixed(2),
-                finalCost: item.calculated.finalCost.toFixed(2)
-            }));
+            const usedCats = [];
             
+            const dataToSend = localItems.filter((_, i) => document.getElementById(`sync-${i}`).checked).map((item, i) => {
+                const catValue = document.getElementById(`cat-${i}`).value.trim();
+                if (catValue && !usedCats.includes(catValue)) usedCats.push(catValue);
+                
+                return {
+                    date: document.getElementById('globalDate').value,
+                    store: document.getElementById('globalStore').value,
+                    payment: document.getElementById('paymentMethod').value,
+                    rebateID: document.getElementById('rebateNum').value,
+                    itemNo: document.getElementById(`no-${i}`).value,
+                    description: document.getElementById(`desc-${i}`).value,
+                    category: catValue,
+                    qty: document.getElementById(`qty-${i}`).value,
+                    unitPrice: document.getElementById(`unit-${i}`).value,
+                    baseTotal: document.getElementById(`base-${i}`).value,
+                    taxRate: document.getElementById(`taxR-${i}`).value,
+                    pricePlusTax: item.calculated.pricePlusTax.toFixed(2),
+                    rebateApplied: item.calculated.rebAmt.toFixed(2),
+                    finalCost: item.calculated.finalCost.toFixed(2)
+                };
+            });
+            
+            // Update Category History (keep top 5 unique)
+            if (usedCats.length > 0) {
+                let history = JSON.parse(localStorage.getItem('cat_history') || "[]");
+                usedCats.forEach(c => {
+                    history = history.filter(h => h.toLowerCase() !== c.toLowerCase());
+                    history.unshift(c);
+                });
+                localStorage.setItem('cat_history', JSON.stringify(history.slice(0, 5)));
+            }
+
             document.getElementById('status').innerText = "📤 Syncing...";
             try {
-                await fetch(sheetUrl, { 
-                    method: 'POST', 
-                    mode: 'no-cors', 
-                    body: JSON.stringify({items: dataToSend, imageFile: base64Image, saveImage: document.getElementById('saveImage').checked}) 
-                });
-                document.getElementById('status').innerText = "🚀 Success!";
+                await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({items: dataToSend, imageFile: base64Image, saveImage: document.getElementById('saveImage').checked}) });
+                document.getElementById('status').innerText = "🚀 Successfully Logged!";
                 setTimeout(clearAllFields, 2000);
             } catch (e) { document.getElementById('status').innerText = "❌ Sync Error"; }
         });
 
         window.clearAllFields = () => {
-            // Reset Global Meta
             document.getElementById('globalStore').value = "";
             document.getElementById('globalDate').value = "";
             document.getElementById('paymentMethod').value = "";
             document.getElementById('rebateNum').value = "";
-            // Keep default rates as they are usually constant
-            
-            // Reset UI
             document.getElementById('reviewSection').style.display = "none";
             document.getElementById('previewContainer').style.display = "none";
             document.getElementById('cameraInput').value = "";
