@@ -30,6 +30,17 @@
         .cat-chip { background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 6px; font-size: 10px; cursor: pointer; border: 1px solid #e2e8f0; }
         .warning-label { color: var(--danger); font-size: 9px; }
     </style>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+    </script>
 </head>
 <body>
 
