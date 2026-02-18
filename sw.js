@@ -1,9 +1,13 @@
 // Minimal Service Worker to enable PWA installation
 self.addEventListener('install', (e) => {
-  console.log('[Service Worker] Install');
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
+  return self.clients.claim();
 });
 
 self.addEventListener('fetch', (e) => {
-  // This version simply passes through requests to the network
+  // Pass requests through to the network normally
   e.respondWith(fetch(e.request));
 });
