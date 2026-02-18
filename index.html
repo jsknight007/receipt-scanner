@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Ledger Pro 3.2</title>
+    <title>AI Ledger Pro 3.3</title>
     <script type="importmap">
       { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } }
     </script>
@@ -12,7 +12,7 @@
         body { font-family: -apple-system, system-ui, sans-serif; padding: 10px; background: #f1f5f9; max-width: 600px; margin: auto; color: var(--slate); }
         .card { background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 12px; border: 1px solid #e2e8f0; }
         h3 { margin: 0 0 10px 0; font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-        input { width: 100%; padding: 8px; margin: 4px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
+        input { width: 100%; padding: 10px; margin: 4px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
         .camera-btn { background: var(--primary); color: white; padding: 18px; display: block; border-radius: 12px; cursor: pointer; font-weight: bold; text-align: center; }
@@ -68,7 +68,7 @@
         <h3>2. Item Review & Calculations</h3>
         <div id="itemContainer"></div>
         <div class="btn-group">
-            <button class="btn-danger" onclick="location.reload()">Discard</button>
+            <button class="btn-danger" onclick="clearAllFields()">Discard / Reset</button>
             <button id="sendBtn" class="btn-success">Sync to Sheet</button>
         </div>
     </div>
@@ -104,13 +104,11 @@
                 });
 
                 const prompt = `OCR: Extract Store, Date, and items. 
-                For each item: item_no, description, category (e.g. Food, Supplies), qty, unit_price, total_line_cost. 
+                For each item: item_no, description, category, qty, unit_price, total_line_cost. 
                 Return JSON only. Format: {"store": "str", "date": "str", "items": [{"itemNo": "str", "desc": "str", "cat": "str", "qty": num, "unit": num, "total": num, "isTaxable": bool}]}`;
 
                 const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
                 let text = await result.response.text();
-                
-                // FIXED: Strip markdown code blocks if the AI includes them
                 const cleanJson = text.replace(/```json|```/g, "").trim();
                 const data = JSON.parse(cleanJson);
 
@@ -120,8 +118,7 @@
                 renderReview();
                 document.getElementById('status').innerText = "✅ Analysis Done";
             } catch (err) { 
-                document.getElementById('status').innerText = "❌ JSON Error. Check console."; 
-                console.error("AI Response Error:", err);
+                document.getElementById('status').innerText = "❌ Analysis Error"; 
             }
         }
 
@@ -158,9 +155,9 @@
         }
 
         window.recalc = (i) => {
+            const baseInput = document.getElementById(`base-${i}`);
             const qty = parseFloat(document.getElementById(`qty-${i}`).value) || 1;
             const unit = parseFloat(document.getElementById(`unit-${i}`).value) || 0;
-            const baseInput = document.getElementById(`base-${i}`);
             
             if (document.activeElement !== baseInput) { baseInput.value = (qty * unit).toFixed(2); }
             
@@ -168,16 +165,20 @@
             const taxR = parseFloat(document.getElementById(`taxR-${i}`).value) || 0;
             const rebRaw = document.getElementById(`rebR-${i}`).value;
             
-            const taxAmt = base * (taxR / 100);
-            const pricePlusTax = base + taxAmt;
-            const rebAmt = rebRaw.includes('%') ? (base * (parseFloat(rebRaw) / 100)) : (parseFloat(rebRaw) || 0);
+            // MATH ROUNDING TO PENNY
+            const taxAmt = Math.round(base * (taxR / 100) * 100) / 100;
+            const pricePlusTax = Math.round((base + taxAmt) * 100) / 100;
             
-            // Formula: (Price + Tax) - Rebate Amount
-            const finalCost = pricePlusTax - rebAmt;
+            const rebAmt = rebRaw.includes('%') 
+                ? Math.round(base * (parseFloat(rebRaw) / 100) * 100) / 100 
+                : Math.round((parseFloat(rebRaw) || 0) * 100) / 100;
+            
+            // Formula: (Price + Tax) - Rebate
+            const finalCost = Math.round((pricePlusTax - rebAmt) * 100) / 100;
 
             document.getElementById(`results-${i}`).innerHTML = `
                 <b>Final Cost: $${finalCost.toFixed(2)}</b><br>
-                <small>Math: ($${base.toFixed(2)} + $${taxAmt.toFixed(2)} tax) - $${rebAmt.toFixed(2)} rebate</small>
+                <small>Math: ($${pricePlusTax.toFixed(2)} with tax) - $${rebAmt.toFixed(2)} rebate</small>
             `;
             localItems[i].calculated = { pricePlusTax, rebAmt, finalCost };
         }
@@ -196,9 +197,9 @@
                 unitPrice: document.getElementById(`unit-${i}`).value,
                 baseTotal: document.getElementById(`base-${i}`).value,
                 taxRate: document.getElementById(`taxR-${i}`).value,
-                pricePlusTax: item.calculated.pricePlusTax,
-                rebateApplied: item.calculated.rebAmt,
-                finalCost: item.calculated.finalCost
+                pricePlusTax: item.calculated.pricePlusTax.toFixed(2),
+                rebateApplied: item.calculated.rebAmt.toFixed(2),
+                finalCost: item.calculated.finalCost.toFixed(2)
             }));
             
             document.getElementById('status').innerText = "📤 Syncing...";
@@ -209,9 +210,26 @@
                     body: JSON.stringify({items: dataToSend, imageFile: base64Image, saveImage: document.getElementById('saveImage').checked}) 
                 });
                 document.getElementById('status').innerText = "🚀 Success!";
-                setTimeout(() => location.reload(), 2000);
-            } catch (e) { document.getElementById('status').innerText = "❌ Sheet Error"; }
+                setTimeout(clearAllFields, 2000);
+            } catch (e) { document.getElementById('status').innerText = "❌ Sync Error"; }
         });
+
+        window.clearAllFields = () => {
+            // Reset Global Meta
+            document.getElementById('globalStore').value = "";
+            document.getElementById('globalDate').value = "";
+            document.getElementById('paymentMethod').value = "";
+            document.getElementById('rebateNum').value = "";
+            // Keep default rates as they are usually constant
+            
+            // Reset UI
+            document.getElementById('reviewSection').style.display = "none";
+            document.getElementById('previewContainer').style.display = "none";
+            document.getElementById('cameraInput').value = "";
+            document.getElementById('status').innerText = "Ready";
+            localItems = [];
+            base64Image = "";
+        };
 
         window.saveSettings = () => {
             localStorage.setItem('gemini_key', document.getElementById('apiKey').value);
