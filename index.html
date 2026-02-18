@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Ledger Pro 3.6</title>
+    <title>AI Ledger Pro 3.7</title>
     <script type="importmap">
       { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } }
     </script>
@@ -76,10 +76,28 @@
     </div>
 
     <script type="module">
-        import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
+        import { GoogleGenerativeAI } from "@google/generative-ai";
 
         let localItems = [];
         let base64Image = "";
+
+        // NEW: Helper function to fix messy OCR dates
+        function formatToHTMLDate(rawDate) {
+            if (!rawDate) return "";
+            // Remove everything except digits, dashes, and slashes
+            let clean = rawDate.replace(/[^\d\-/]/g, '').replace(/\//g, '-');
+            
+            // If it's already YYYY-MM-DD
+            if (/\d{4}-\d{2}-\d{2}/.test(clean)) return clean;
+            
+            // Try to handle MM-DD-YYYY or DD-MM-YYYY (basic flip)
+            let parts = clean.split('-');
+            if (parts.length === 3) {
+                if (parts[2].length === 4) return `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+                if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+            }
+            return clean;
+        }
 
         document.getElementById('cameraInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -99,25 +117,33 @@
             const key = localStorage.getItem('gemini_key');
             try {
                 const genAI = new GoogleGenerativeAI(key);
-                const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+                const model = genAI.getGenerativeModel({ 
+                    model: "gemini-3-flash-preview",
+                    generationConfig: { responseMimeType: "application/json" }
+                });
 
-                // STRICT DATE FORMAT INSTRUCTION ADDED
-                const prompt = `OCR: Extract Store Name, Transaction Date (strictly in YYYY-MM-DD format), and detailed items. 
-                For each item: item_no, description, qty, unit_price, total_line_cost. 
-                Return JSON only. Format: {"store": "str", "date": "YYYY-MM-DD", "items": [{"itemNo": "str", "desc": "str", "qty": num, "unit": num, "total": num, "isTaxable": bool}]}`;
+                const prompt = `OCR Extract: Store Name, Transaction Date, and items. 
+                Return strictly JSON: {"store": "str", "date": "YYYY-MM-DD", "items": [{"itemNo": "str", "desc": "str", "qty": num, "unit": num, "total": num, "isTaxable": bool}]}`;
 
                 const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
                 let text = await result.response.text();
                 const data = JSON.parse(text.replace(/```json|```/g, "").trim());
 
                 document.getElementById('globalStore').value = data.store || "";
-                // If AI returns a valid YYYY-MM-DD, this will now work in the date input
-                if(data.date) document.getElementById('globalDate').value = data.date;
+                
+                // Use the Date Healer before assigning
+                if(data.date) {
+                    const healedDate = formatToHTMLDate(data.date);
+                    document.getElementById('globalDate').value = healedDate;
+                }
                 
                 localItems = data.items;
                 renderReview();
                 document.getElementById('status').innerText = "✅ Scan Success";
-            } catch (err) { document.getElementById('status').innerText = "❌ AI Parse Error"; }
+            } catch (err) { 
+                console.error(err);
+                document.getElementById('status').innerText = "❌ Parse Error"; 
+            }
         }
 
         window.renderReview = () => {
