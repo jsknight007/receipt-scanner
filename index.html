@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Ledger Pro 3.0</title>
+    <title>AI Ledger Pro 3.1</title>
     <script type="importmap">
       { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } }
     </script>
@@ -12,61 +12,47 @@
         body { font-family: -apple-system, system-ui, sans-serif; padding: 10px; background: #f1f5f9; max-width: 600px; margin: auto; color: var(--slate); }
         .card { background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 12px; border: 1px solid #e2e8f0; }
         h3 { margin: 0 0 10px 0; font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-        
-        input, select { width: 100%; padding: 10px; margin: 4px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
+        input { width: 100%; padding: 8px; margin: 4px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
         .camera-btn { background: var(--primary); color: white; padding: 18px; display: block; border-radius: 12px; cursor: pointer; font-weight: bold; text-align: center; }
         #previewContainer img { width: 100%; border-radius: 12px; margin-top: 10px; }
-
-        .item-row { background: #fff; padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid #e2e8f0; }
-        .item-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-        .calc-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: #f8fafc; padding: 8px; border-radius: 8px; font-size: 11px; }
-        .calc-box label { display: block; color: #64748b; margin-bottom: 2px; font-weight: bold; }
-        .calc-box input { padding: 5px; font-size: 12px; }
-        
-        .final-badge { background: #e0e7ff; color: var(--primary); padding: 6px 10px; border-radius: 8px; font-weight: bold; font-size: 13px; display: inline-block; margin-top: 8px; border: 1px solid #c7d2fe; }
-
+        .item-row { background: #fff; padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
+        .calc-box { background: #f8fafc; padding: 8px; border-radius: 8px; font-size: 11px; margin-top: 8px; }
+        .calc-box label { display: block; color: #64748b; margin-bottom: 2px; font-weight: bold; font-size: 10px; }
+        .final-badge { background: #e0e7ff; color: var(--primary); padding: 8px; border-radius: 8px; font-weight: bold; font-size: 13px; margin-top: 8px; display: block; border: 1px solid #c7d2fe; }
         .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
         button { width: 100%; padding: 14px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: #e2e8f0; color: var(--danger); }
-        
-        #status { text-align: center; margin: 10px; font-weight: 600; color: var(--primary); font-size: 0.85rem; }
+        #status { text-align: center; margin: 10px; font-weight: 600; color: var(--primary); }
     </style>
 </head>
 <body>
 
     <div id="configPanel" class="card" style="display:none; background:#fffbeb;">
-        <h3>⚙️ Developer Setup</h3>
+        <h3>⚙️ Setup</h3>
         <input type="password" id="apiKey" placeholder="Gemini API Key">
-        <input type="text" id="sheetUrl" placeholder="Google Apps Script URL">
-        <button class="btn-success" onclick="saveSettings()">Save Configuration</button>
+        <input type="text" id="sheetUrl" placeholder="Script URL">
+        <button class="btn-success" onclick="saveSettings()">Save</button>
     </div>
 
     <div class="card">
-        <h3>1. Global Trip Info (Editable)</h3>
+        <h3>1. Global Trip Meta</h3>
         <div class="grid-2">
-            <input type="text" id="globalStore" placeholder="Store Name">
+            <input type="text" id="globalStore" placeholder="Store">
             <input type="date" id="globalDate">
         </div>
         <div class="grid-2">
-            <input type="text" id="paymentMethod" placeholder="Payment (e.g. Visa 9695)">
+            <input type="text" id="paymentMethod" placeholder="Payment Method">
             <input type="text" id="rebateNum" placeholder="Rebate ID #">
         </div>
         <div class="grid-2">
-            <div>
-                <label style="font-size:10px; color:#64748b;">Default Tax %</label>
-                <input type="number" id="defaultTax" value="6" step="0.1">
-            </div>
-            <div>
-                <label style="font-size:10px; color:#64748b;">Default Rebate %</label>
-                <input type="number" id="globalRebate" value="11">
-            </div>
+            <div><label style="font-size:10px;">Tax %</label><input type="number" id="defaultTax" value="6" step="0.1"></div>
+            <div><label style="font-size:10px;">Rebate %</label><input type="number" id="globalRebate" value="11"></div>
         </div>
         <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
-            <input type="checkbox" id="saveImage" style="width:20px; height:20px; margin:0;" checked>
-            <label for="saveImage" style="font-size:0.85rem;">Save photo to Google Drive?</label>
+            <input type="checkbox" id="saveImage" checked> <label style="font-size:0.85rem;">Save Photo?</label>
         </div>
     </div>
 
@@ -79,15 +65,13 @@
     <div id="status">Ready</div>
 
     <div id="reviewSection" style="display:none;">
-        <h3>2. Review & Calculate Line Items</h3>
+        <h3>2. Item Review & Calculations</h3>
         <div id="itemContainer"></div>
         <div class="btn-group">
-            <button class="btn-danger" onclick="resetApp()">Clear All</button>
-            <button id="sendBtn" class="btn-success">Push to Sheet</button>
+            <button class="btn-danger" onclick="location.reload()">Discard</button>
+            <button id="sendBtn" class="btn-success">Sync to Sheet</button>
         </div>
     </div>
-
-    <center><button style="background:none; border:none; color:#94a3b8; font-size:11px; text-decoration:underline; margin-top:20px;" onclick="document.getElementById('configPanel').style.display='block'">Settings</button></center>
 
     <script type="module">
         import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
@@ -95,14 +79,12 @@
         let localItems = [];
         let base64Image = "";
 
-        const cameraInput = document.getElementById('cameraInput');
-        cameraInput.addEventListener('change', async (e) => {
+        document.getElementById('cameraInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
             document.getElementById('imagePreview').src = URL.createObjectURL(file);
             document.getElementById('previewContainer').style.display = "block";
-            document.getElementById('status').innerText = "🧠 Gemini 3 Processing...";
-            
+            document.getElementById('status').innerText = "🧠 Deep Analyzing...";
             const reader = new FileReader();
             reader.onloadend = async () => {
                 base64Image = reader.result.split(',')[1];
@@ -113,138 +95,100 @@
 
         async function analyzeImage(base64) {
             const key = localStorage.getItem('gemini_key');
-            if (!key) return alert("Please set API Key in Settings!");
-
             try {
                 const genAI = new GoogleGenerativeAI(key);
-                const model = genAI.getGenerativeModel({ 
-                    model: "gemini-3-flash-preview",
-                    safetySettings: [{ category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE }],
-                    generationConfig: { responseMimeType: "application/json" }
-                });
-                
-                const prompt = `OCR Task: Extract store, date (YYYY-MM-DD), and line items.
-                For each item, extract description and total_cost (the line total).
-                Rule: If an item is a grocery staple (milk, bread, etc.), flag isTaxable as false. Otherwise true.
-                Return JSON: {"store": "str", "date": "str", "items": [{"desc": "str", "total": num, "isTaxable": bool}]}`;
+                const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+                const prompt = `OCR: Extract Store, Date, and detailed items.
+                Items must include: item_no (SKU), description, qty, unit_price, and total_line_cost.
+                Return JSON: {"store": "str", "date": "str", "items": [{"itemNo": "str", "desc": "str", "qty": num, "unit": num, "total": num, "isTaxable": bool}]}`;
 
                 const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
                 const data = JSON.parse(await result.response.text());
-
                 document.getElementById('globalStore').value = data.store || "";
                 document.getElementById('globalDate').value = data.date || "";
-                
                 localItems = data.items;
                 renderReview();
-                document.getElementById('status').innerText = "✅ Analysis Complete";
-            } catch (err) { 
-                document.getElementById('status').innerText = "❌ Analysis Error";
-                console.error(err);
-            }
+                document.getElementById('status').innerText = "✅ Done";
+            } catch (err) { document.getElementById('status').innerText = "❌ Error: " + err.message; }
         }
 
         window.renderReview = () => {
-            const container = document.getElementById('itemContainer');
-            container.innerHTML = "";
+            const container = document.getElementById('itemContainer'); container.innerHTML = "";
             const defTax = document.getElementById('defaultTax').value;
             const defRebate = document.getElementById('globalRebate').value;
 
             localItems.forEach((item, i) => {
-                const taxRate = item.isTaxable ? defTax : 0;
-                const div = document.createElement('div');
-                div.className = "item-row";
+                const div = document.createElement('div'); div.className = "item-row";
                 div.innerHTML = `
-                    <div class="item-header">
-                        <input type="checkbox" checked id="sync-${i}" style="width:20px; height:20px;">
-                        <input type="text" value="${item.desc}" id="desc-${i}" style="margin:0; font-weight:bold;">
+                    <div style="display:flex; gap:10px;"><input type="checkbox" checked id="sync-${i}" style="width:20px;">
+                    <input type="text" value="${item.desc}" id="desc-${i}" style="font-weight:bold;"></div>
+                    <div class="grid-3" style="margin-top:5px;">
+                        <div><label>Item #</label><input type="text" value="${item.itemNo || ''}" id="no-${i}"></div>
+                        <div><label>Qty</label><input type="number" value="${item.qty || 1}" id="qty-${i}" oninput="recalc(${i})"></div>
+                        <div><label>Unit $</label><input type="number" step="0.01" value="${item.unit || item.total}" id="unit-${i}" oninput="recalc(${i})"></div>
                     </div>
-                    <div class="calc-box">
-                        <div>
-                            <label>Base Total</label>
-                            <input type="number" step="0.01" value="${item.total}" id="base-${i}" oninput="recalc(${i})">
-                        </div>
-                        <div>
-                            <label>Tax %</label>
-                            <input type="number" step="0.1" value="${taxRate}" id="taxR-${i}" oninput="recalc(${i})">
-                        </div>
-                        <div>
-                            <label>Rebate (% or $)</label>
-                            <input type="text" value="${defRebate}%" id="rebR-${i}" oninput="recalc(${i})">
-                        </div>
+                    <div class="calc-box grid-3">
+                        <div><label>Base Total</label><input type="number" step="0.01" value="${item.total}" id="base-${i}" oninput="recalc(${i})"></div>
+                        <div><label>Tax %</label><input type="number" value="${item.isTaxable ? defTax : 0}" id="taxR-${i}" oninput="recalc(${i})"></div>
+                        <div><label>Rebate (% or $)</label><input type="text" value="${defRebate}%" id="rebR-${i}" oninput="recalc(${i})"></div>
                     </div>
                     <div id="results-${i}" class="final-badge">Calculating...</div>
                 `;
-                container.appendChild(div);
-                recalc(i);
+                container.appendChild(div); recalc(i);
             });
             document.getElementById('reviewSection').style.display = "block";
         }
 
         window.recalc = (i) => {
-            const base = parseFloat(document.getElementById(`base-${i}`).value) || 0;
+            // Priority: If user edits Qty/Unit, update Base Total
+            const qty = parseFloat(document.getElementById(`qty-${i}`).value) || 1;
+            const unit = parseFloat(document.getElementById(`unit-${i}`).value) || 0;
+            const baseInput = document.getElementById(`base-${i}`);
+            
+            // Only auto-update base total if the user isn't manually typing in the base box right now
+            if (document.activeElement !== baseInput) { baseInput.value = (qty * unit).toFixed(2); }
+            
+            const base = parseFloat(baseInput.value) || 0;
             const taxR = parseFloat(document.getElementById(`taxR-${i}`).value) || 0;
             const rebRaw = document.getElementById(`rebR-${i}`).value;
             
             const taxAmt = base * (taxR / 100);
             const pricePlusTax = base + taxAmt;
-
-            let rebAmt = 0;
-            if (rebRaw.includes('%')) {
-                rebAmt = base * (parseFloat(rebRaw) / 100);
-            } else {
-                rebAmt = parseFloat(rebRaw) || 0;
-            }
-
-            const finalCost = base - rebAmt;
+            const rebAmt = rebRaw.includes('%') ? (base * (parseFloat(rebRaw) / 100)) : (parseFloat(rebRaw) || 0);
+            
+            // The Correct Formula: (Price + Tax) - Rebate
+            const finalCost = pricePlusTax - rebAmt;
 
             document.getElementById(`results-${i}`).innerHTML = `
-                Final Cost: $${finalCost.toFixed(2)} 
-                <div style="font-size:10px; color:#64748b; margin-top:4px;">
-                    (+Tax: $${pricePlusTax.toFixed(2)} | Rebate: -$${rebAmt.toFixed(2)})
-                </div>
+                <b>Final Cost: $${finalCost.toFixed(2)}</b><br>
+                <small>Calculated: ($${pricePlusTax.toFixed(2)} with tax) - $${rebAmt.toFixed(2)} rebate</small>
             `;
-            
-            localItems[i].calculated = { taxAmt, pricePlusTax, rebAmt, finalCost };
+            localItems[i].calculated = { pricePlusTax, rebAmt, finalCost };
         }
 
         document.getElementById('sendBtn').addEventListener('click', async () => {
             const sheetUrl = localStorage.getItem('sheet_url');
-            if (!sheetUrl) return alert("Missing Sheet URL!");
-
             const dataToSend = localItems.filter((_, i) => document.getElementById(`sync-${i}`).checked).map((item, i) => ({
                 date: document.getElementById('globalDate').value,
                 store: document.getElementById('globalStore').value,
                 payment: document.getElementById('paymentMethod').value,
                 rebateID: document.getElementById('rebateNum').value,
+                itemNo: document.getElementById(`no-${i}`).value,
                 description: document.getElementById(`desc-${i}`).value,
-                baseTotal: parseFloat(document.getElementById(`base-${i}`).value),
-                taxRate: parseFloat(document.getElementById(`taxR-${i}`).value),
+                qty: document.getElementById(`qty-${i}`).value,
+                unitPrice: document.getElementById(`unit-${i}`).value,
+                baseTotal: document.getElementById(`base-${i}`).value,
+                taxRate: document.getElementById(`taxR-${i}`).value,
                 pricePlusTax: item.calculated.pricePlusTax,
                 rebateApplied: item.calculated.rebAmt,
                 finalCost: item.calculated.finalCost
             }));
-
-            if (dataToSend.length === 0) return alert("No items selected!");
-
             document.getElementById('status').innerText = "📤 Syncing...";
-            try {
-                await fetch(sheetUrl, { 
-                    method: 'POST', 
-                    mode: 'no-cors', 
-                    body: JSON.stringify({
-                        saveImage: document.getElementById('saveImage').checked,
-                        imageFile: base64Image,
-                        items: dataToSend
-                    }) 
-                });
-                document.getElementById('status').innerText = "🚀 Successfully Logged!";
-                setTimeout(resetApp, 2000);
-            } catch (err) { 
-                document.getElementById('status').innerText = "❌ Sync Failed.";
-            }
+            await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({items: dataToSend, imageFile: base64Image, saveImage: document.getElementById('saveImage').checked}) });
+            document.getElementById('status').innerText = "🚀 Success!";
+            setTimeout(() => location.reload(), 2000);
         });
 
-        window.resetApp = () => location.reload();
         window.saveSettings = () => {
             localStorage.setItem('gemini_key', document.getElementById('apiKey').value);
             localStorage.setItem('sheet_url', document.getElementById('sheetUrl').value);
