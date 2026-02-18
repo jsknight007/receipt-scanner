@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Ledger Pro 3.7</title>
+    <title>AI Ledger Pro 3.8</title>
     <script type="importmap">
       { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } }
     </script>
@@ -12,6 +12,7 @@
         body { font-family: -apple-system, system-ui, sans-serif; padding: 10px; background: #f1f5f9; max-width: 600px; margin: auto; color: var(--slate); }
         .card { background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 12px; border: 1px solid #e2e8f0; }
         h3 { margin: 0 0 10px 0; font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+        label { display: block; font-size: 10px; font-weight: bold; color: #64748b; margin-bottom: 2px; }
         input { width: 100%; padding: 10px; margin: 4px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
@@ -19,15 +20,15 @@
         #previewContainer img { width: 100%; border-radius: 12px; margin-top: 10px; }
         .item-row { background: #fff; padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
         .calc-box { background: #f8fafc; padding: 8px; border-radius: 8px; font-size: 11px; margin-top: 8px; }
-        .calc-box label, .grid-3 label { display: block; color: #64748b; margin-bottom: 2px; font-weight: bold; font-size: 10px; }
         .final-badge { background: #e0e7ff; color: var(--primary); padding: 8px; border-radius: 8px; font-weight: bold; font-size: 13px; margin-top: 8px; display: block; border: 1px solid #c7d2fe; line-height: 1.4; }
         .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
         button { width: 100%; padding: 14px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: #e2e8f0; color: var(--danger); }
         #status { text-align: center; margin: 10px; font-weight: 600; color: var(--primary); }
-        .chip-container { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .chip-container { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; min-height: 20px; }
         .cat-chip { background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 6px; font-size: 10px; cursor: pointer; border: 1px solid #e2e8f0; }
+        .warning-label { color: var(--danger); font-size: 9px; }
     </style>
 </head>
 <body>
@@ -42,19 +43,26 @@
     <div class="card">
         <h3>1. Trip Meta</h3>
         <div class="grid-2">
-            <input type="text" id="globalStore" placeholder="Store">
-            <input type="date" id="globalDate">
+            <div><label>Store</label><input type="text" id="globalStore" placeholder="Store Name"></div>
+            <div>
+                <label>Date <span class="warning-label">(Manual entry if blank)</span></label>
+                <input type="date" id="globalDate">
+            </div>
         </div>
         <div class="grid-2">
-            <input type="text" id="paymentMethod" placeholder="Payment Method">
-            <input type="text" id="rebateNum" placeholder="Rebate ID #">
+            <div>
+                <label>Payment Method</label>
+                <input type="text" id="paymentMethod" placeholder="e.g. Visa 1234">
+                <div id="payment-history-container" class="chip-container"></div>
+            </div>
+            <div><label>Rebate ID #</label><input type="text" id="rebateNum" placeholder="e.g. 11% Rebate"></div>
         </div>
         <div class="grid-2">
-            <div><label>Tax %</label><input type="number" id="defaultTax" value="6" step="0.1"></div>
-            <div><label>Rebate %</label><input type="number" id="globalRebate" value="11"></div>
+            <div><label>Default Tax %</label><input type="number" id="defaultTax" value="6" step="0.1"></div>
+            <div><label>Default Rebate %</label><input type="number" id="globalRebate" value="11"></div>
         </div>
         <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
-            <input type="checkbox" id="saveImage" checked> <label style="font-size:0.85rem;">Save Photo?</label>
+            <input type="checkbox" id="saveImage" checked> <label style="font-size:0.85rem;">Save Photo to Drive?</label>
         </div>
     </div>
 
@@ -81,16 +89,11 @@
         let localItems = [];
         let base64Image = "";
 
-        // NEW: Helper function to fix messy OCR dates
+        // Helper: Format OCR dates for HTML input
         function formatToHTMLDate(rawDate) {
             if (!rawDate) return "";
-            // Remove everything except digits, dashes, and slashes
             let clean = rawDate.replace(/[^\d\-/]/g, '').replace(/\//g, '-');
-            
-            // If it's already YYYY-MM-DD
             if (/\d{4}-\d{2}-\d{2}/.test(clean)) return clean;
-            
-            // Try to handle MM-DD-YYYY or DD-MM-YYYY (basic flip)
             let parts = clean.split('-');
             if (parts.length === 3) {
                 if (parts[2].length === 4) return `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
@@ -98,6 +101,14 @@
             }
             return clean;
         }
+
+        // Initialize Payment History Chips
+        function renderPaymentHistory() {
+            const history = JSON.parse(localStorage.getItem('pay_history') || "[]");
+            const container = document.getElementById('payment-history-container');
+            container.innerHTML = history.map(pay => `<div class="cat-chip" onclick="document.getElementById('paymentMethod').value='${pay}'">${pay}</div>`).join('');
+        }
+        renderPaymentHistory();
 
         document.getElementById('cameraInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -123,38 +134,30 @@
                 });
 
                 const prompt = `OCR Extract: Store Name, Transaction Date, and items. 
-                Return strictly JSON: {"store": "str", "date": "YYYY-MM-DD", "items": [{"itemNo": "str", "desc": "str", "qty": num, "unit": num, "total": num, "isTaxable": bool}]}`;
+                Return JSON only: {"store": "str", "date": "YYYY-MM-DD", "items": [{"itemNo": "str", "desc": "str", "qty": num, "unit": num, "total": num, "isTaxable": bool}]}`;
 
                 const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
                 let text = await result.response.text();
                 const data = JSON.parse(text.replace(/```json|```/g, "").trim());
 
                 document.getElementById('globalStore').value = data.store || "";
-                
-                // Use the Date Healer before assigning
-                if(data.date) {
-                    const healedDate = formatToHTMLDate(data.date);
-                    document.getElementById('globalDate').value = healedDate;
-                }
+                if(data.date) document.getElementById('globalDate').value = formatToHTMLDate(data.date);
                 
                 localItems = data.items;
                 renderReview();
                 document.getElementById('status').innerText = "✅ Scan Success";
-            } catch (err) { 
-                console.error(err);
-                document.getElementById('status').innerText = "❌ Parse Error"; 
-            }
+            } catch (err) { document.getElementById('status').innerText = "❌ Parse Error"; }
         }
 
         window.renderReview = () => {
             const container = document.getElementById('itemContainer'); container.innerHTML = "";
             const defTax = document.getElementById('defaultTax').value;
             const defRebate = document.getElementById('globalRebate').value;
-            const history = JSON.parse(localStorage.getItem('cat_history') || "[]");
+            const catHistory = JSON.parse(localStorage.getItem('cat_history') || "[]");
 
             localItems.forEach((item, i) => {
                 const div = document.createElement('div'); div.className = "item-row";
-                let chipsHtml = history.map(cat => `<div class="cat-chip" onclick="setCat(${i}, '${cat}')">${cat}</div>`).join('');
+                let chipsHtml = catHistory.map(cat => `<div class="cat-chip" onclick="setCat(${i}, '${cat}')">${cat}</div>`).join('');
                 div.innerHTML = `
                     <div style="display:flex; gap:10px; align-items:center;">
                         <input type="checkbox" checked id="sync-${i}" style="width:20px; height:20px;">
@@ -162,7 +165,11 @@
                     </div>
                     <div class="grid-2" style="margin-top:8px;">
                         <div><label>Item # / SKU</label><input type="text" value="${item.itemNo || ''}" id="no-${i}"></div>
-                        <div><label>Category (Manual)</label><input type="text" id="cat-${i}"><div class="chip-container">${chipsHtml}</div></div>
+                        <div>
+                            <label>Category (Manual)</label>
+                            <input type="text" id="cat-${i}">
+                            <div class="chip-container">${chipsHtml}</div>
+                        </div>
                     </div>
                     <div class="grid-3" style="margin-top:8px;">
                         <div><label>Qty</label><input type="number" value="${item.qty || 1}" id="qty-${i}" oninput="recalc(${i})"></div>
@@ -190,12 +197,10 @@
             const base = parseFloat(baseInput.value) || 0;
             const taxR = parseFloat(document.getElementById(`taxR-${i}`).value) || 0;
             const rebRaw = document.getElementById(`rebR-${i}`).value;
-            
             const taxAmt = Math.round(base * (taxR / 100) * 100) / 100;
             const pricePlusTax = Math.round((base + taxAmt) * 100) / 100;
             const rebAmt = rebRaw.includes('%') ? Math.round(base * (parseFloat(rebRaw) / 100) * 100) / 100 : Math.round((parseFloat(rebRaw) || 0) * 100) / 100;
             const finalCost = Math.round((pricePlusTax - rebAmt) * 100) / 100;
-
             document.getElementById(`results-${i}`).innerHTML = `<b>Final: $${finalCost.toFixed(2)}</b><br><small>($${pricePlusTax.toFixed(2)} w/ tax) - $${rebAmt.toFixed(2)} reb</small>`;
             localItems[i].calculated = { pricePlusTax, rebAmt, finalCost };
         }
@@ -203,13 +208,15 @@
         document.getElementById('sendBtn').addEventListener('click', async () => {
             const sheetUrl = localStorage.getItem('sheet_url');
             const usedCats = [];
+            const payVal = document.getElementById('paymentMethod').value.trim();
+            
             const dataToSend = localItems.filter((_, i) => document.getElementById(`sync-${i}`).checked).map((item, i) => {
                 const catValue = document.getElementById(`cat-${i}`).value.trim();
                 if (catValue && !usedCats.includes(catValue)) usedCats.push(catValue);
                 return {
                     date: document.getElementById('globalDate').value,
                     store: document.getElementById('globalStore').value,
-                    payment: document.getElementById('paymentMethod').value,
+                    payment: payVal,
                     rebateID: document.getElementById('rebateNum').value,
                     itemNo: document.getElementById(`no-${i}`).value,
                     description: document.getElementById(`desc-${i}`).value,
@@ -223,11 +230,18 @@
                     finalCost: item.calculated.finalCost.toFixed(2)
                 };
             });
-            
+
+            // Update Histories
             if (usedCats.length > 0) {
-                let history = JSON.parse(localStorage.getItem('cat_history') || "[]");
-                usedCats.forEach(c => { history = history.filter(h => h.toLowerCase() !== c.toLowerCase()); history.unshift(c); });
-                localStorage.setItem('cat_history', JSON.stringify(history.slice(0, 5)));
+                let catHist = JSON.parse(localStorage.getItem('cat_history') || "[]");
+                usedCats.forEach(c => { catHist = catHist.filter(h => h !== c); catHist.unshift(c); });
+                localStorage.setItem('cat_history', JSON.stringify(catHist.slice(0, 5)));
+            }
+            if (payVal) {
+                let payHist = JSON.parse(localStorage.getItem('pay_history') || "[]");
+                payHist = payHist.filter(h => h !== payVal); payHist.unshift(payVal);
+                localStorage.setItem('pay_history', JSON.stringify(payHist.slice(0, 5)));
+                renderPaymentHistory();
             }
 
             document.getElementById('status').innerText = "📤 Syncing...";
