@@ -1,15 +1,15 @@
 {
   "short_name": "Ledger Pro",
-  "name": "AI Ledger Pro 3.8",
+  "name": "AI Ledger Pro 3.9",
   "icons": [
     {
-      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjEyOCIgZmlsbD0iIzYzNjZmMSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTUlIiBkb21pbmFbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmedG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBmb250LXNpemU9IjMwMCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiPiQ8L3RleHQ+PC9zdmc+",
-      "type": "image/svg+xml",
-      "sizes": "any"
+      "src": "https://cdn-icons-png.flaticon.com/512/2535/2535072.png",
+      "type": "image/png",
+      "sizes": "512x512"
     }
   ],
   "start_url": "./index.html",
-  "background_color": "#f1f5f9",
   "display": "standalone",
+  "background_color": "#f1f5f9",
   "theme_color": "#6366f1"
 }
