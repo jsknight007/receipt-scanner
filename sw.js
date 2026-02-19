@@ -1,13 +1,11 @@
-// Minimal Service Worker to enable PWA installation
-self.addEventListener('install', (e) => {
-  self.skipWaiting();
+const CACHE_NAME = 'ledger-v1';
+// We don't even need to cache files, just handle the event
+self.addEventListener('fetch', (event) => {
+    event.respondWith(
+        fetch(event.request).catch(() => caches.match(event.request))
+    );
 });
 
-self.addEventListener('activate', (e) => {
-  return self.clients.claim();
-});
-
-self.addEventListener('fetch', (e) => {
-  // Pass requests through to the network normally
-  e.respondWith(fetch(e.request));
+self.addEventListener('install', (event) => {
+    self.skipWaiting();
 });
