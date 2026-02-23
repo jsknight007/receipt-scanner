@@ -78,7 +78,9 @@
                     const prompt = `Return JSON only: {"store":"str","date":"YYYY-MM-DD","items":[{"description":"str","qty":num,"unitPrice":num}]}`;
                     
                     const result = await model.generateContent([prompt, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
-                    const data = JSON.parse(result.response.text());
+                    const response = await result.response;
+                    const text = response.text();
+                    const data = JSON.parse(text);
 
                     document.getElementById('store').value = data.store || "";
                     document.getElementById('date').value = data.date || "";
