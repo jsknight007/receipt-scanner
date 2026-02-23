@@ -103,40 +103,54 @@
             reader.readAsDataURL(file);
         };
 
-        window.sync = async () => {
-            document.getElementById('status').innerText = "☁️ SYNCING...";
-            const url = localStorage.getItem('u');
-            const isM = document.getElementById('store').value.toLowerCase().includes('menards');
-            const use11 = isM && document.getElementById('m11').checked;
+window.sync = async () => {
+    document.getElementById('status').innerText = "☁️ SYNCING...";
+    const url = localStorage.getItem('u');
+    const isM = document.getElementById('store').value.toLowerCase().includes('menards');
+    const use11 = isM && document.getElementById('m11').checked;
 
-            const payload = {
-                imageBlob: base64Img,
-                items: capturedItems.map((it, i) => {
-                    const q = parseFloat(document.getElementById(`q-${i}`).value);
-                    const p = parseFloat(document.getElementById(`p-${i}`).value);
-                    const base = q * p;
-                    return {
-                        date: document.getElementById('date').value,
-                        origDate: document.getElementById('date').value,
-                        description: document.getElementById(`d-${i}`).value,
-                        qty: q, unitPrice: p, baseTotal: base.toFixed(2),
-                        pricePlusTax: (base * 1.07).toFixed(2),
-                        priceMinusRebate: use11 ? (base * 0.89).toFixed(2) : base.toFixed(2),
-                        finalCost: (base * 1.07 - (use11 ? base * 0.11 : 0)).toFixed(2),
-                        payment: document.getElementById('pay').value || "Card",
-                        category: "Materials",
-                        rebateApplied: use11 ? (base * 0.11).toFixed(2) : "0.00",
-                        store: document.getElementById('store').value
-                    };
-                })
+    const payload = {
+        imageBlob: base64Img,
+        items: capturedItems.map((it, i) => {
+            const q = parseFloat(document.getElementById(`q-${i}`).value);
+            const p = parseFloat(document.getElementById(`p-${i}`).value);
+            const base = q * p;
+            return {
+                date: document.getElementById('date').value,
+                origDate: document.getElementById('date').value,
+                description: document.getElementById(`d-${i}`).value,
+                qty: q, unitPrice: p, baseTotal: base.toFixed(2),
+                pricePlusTax: (base * 1.07).toFixed(2),
+                priceMinusRebate: use11 ? (base * 0.89).toFixed(2) : base.toFixed(2),
+                finalCost: (base * 1.07 - (use11 ? base * 0.11 : 0)).toFixed(2),
+                payment: document.getElementById('pay').value || "Card",
+                category: "Materials",
+                rebateApplied: use11 ? (base * 0.11).toFixed(2) : "0.00",
+                store: document.getElementById('store').value
             };
+        })
+    };
 
-            try {
-                await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-                alert("Success! Data sent to Sheet.");
-                location.reload();
-            } catch (e) { alert("Sync failed: " + e.message); }
-        };
+    try {
+        // We use text/plain to avoid the "pre-flight" OPTIONS check
+        // We use mode: 'no-cors' to ignore the redirect response
+        await fetch(url, { 
+            method: 'POST', 
+            mode: 'no-cors', 
+            cache: 'no-cache',
+            headers: { 'Content-Type': 'text/plain' }, 
+            body: JSON.stringify(payload) 
+        });
+
+        // Since we can't read the response in no-cors mode, 
+        // we assume success if the fetch itself didn't throw a network error.
+        alert("Sync command sent! Check sheet in a moment.");
+        location.reload();
+    } catch (e) { 
+        alert("Network Error: " + e.message); 
+        document.getElementById('status').innerText = "❌ FAILED";
+    }
+};
     </script>
 </body>
 </html>
