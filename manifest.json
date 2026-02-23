@@ -1,15 +1,17 @@
 {
-  "short_name": "Ledger Pro",
-  "name": "AI Ledger Pro 3.9",
+  "name": "Ledger Pro 4.4",
+  "short_name": "LedgerPro",
+  "description": "AI-Powered Receipt and Rebate Tracker",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#6366f1",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2535/2535072.png",
+      "src": "icon.png",
+      "sizes": "512x512",
       "type": "image/png",
-      "sizes": "512x512"
+      "purpose": "any maskable"
     }
-  ],
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#f1f5f9",
-  "theme_color": "#6366f1"
+  ]
 }
