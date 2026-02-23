@@ -1,98 +1,219 @@
-<script type="module">
-    import { GoogleGenerativeAI } from "@google/generative-ai";
-    let items = []; let rawImage = "";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ledger Pro 4.5</title>
+    <link rel="manifest" href="manifest.json">
+    <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
+    <style>
+        :root { --menards: #15803d; --lowes: #004990; --danger: #dc2626; --slate: #1e293b; --amber: #fff7ed; }
+        body { font-family: -apple-system, sans-serif; padding: 12px; background: #f8fafc; color: var(--slate); max-width: 500px; margin: auto; }
+        .card { background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 12px; border: 1px solid #e2e8f0; }
+        .summary-card { background: var(--slate); color: white; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center; }
+        .summary-val { font-size: 1.2rem; font-weight: bold; color: #fbbf24; }
+        .store-tag { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: white; background: #94a3b8; }
+        .menards-ui { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px; border-radius: 8px; margin-top: 8px; border-left: 4px solid var(--menards); }
+        .return-ui { border: 2px solid var(--danger) !important; background: #fef2f2 !important; }
+        label { display: block; font-size: 10px; font-weight: bold; color: #64748b; margin-bottom: 2px; text-transform: uppercase; }
+        input, select { width: 100%; padding: 10px; margin: 4px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .item-row { background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
+        .btn-sync { background: #10b981; color: white; width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .camera-label { background: #6366f1; color: white; padding: 20px; display: block; border-radius: 12px; text-align: center; font-weight: bold; cursor: pointer; }
+        #configPanel { display:none; background: var(--amber); }
+        .debug-box { font-family: monospace; font-size: 10px; color: red; margin-top: 10px; padding: 5px; background: #fff1f2; border-radius: 4px; display:none; word-break: break-all; }
+    </style>
+</head>
+<body>
 
-    // Fix 1: Store logic trigger
-    window.updateTheme = () => {
-        const store = (document.getElementById('globalStore').value || "").toLowerCase();
-        const tag = document.getElementById('storeTag');
-        const header = document.getElementById('headerCard');
-        
-        // Menards Check
-        const isMenards = store.includes('menards');
-        const isLowes = store.includes('lowe');
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h2 style="margin:0;">Ledger Pro <span style="font-size:0.8rem; opacity:0.6;">v4.5</span></h2>
+        <button onclick="document.getElementById('configPanel').style.display='block'" style="background:none; border:none; font-size:1.5rem;">⚙️</button>
+    </div>
 
-        tag.innerText = isMenards ? 'Menards' : (isLowes ? "Lowe's" : "General");
-        tag.style.background = isMenards ? 'var(--menards)' : (isLowes ? 'var(--lowes)' : '#94a3b8');
-        
-        // UI Logic visibility
-        const mLogic = document.getElementById('mLogic');
-        if (mLogic) mLogic.style.display = isMenards ? 'block' : 'none';
-    };
+    <div id="configPanel" class="card">
+        <label>Gemini API Key</label><input type="password" id="apiKey">
+        <label>Apps Script URL</label><input type="text" id="sheetUrl">
+        <button onclick="saveSettings()" style="width:100%; padding:10px; border-radius:8px; background:var(--slate); color:white; border:none;">Save Settings</button>
+    </div>
 
-    document.getElementById('cam').addEventListener('change', async (e) => {
-        const file = e.target.files[0]; if(!file) return;
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-            rawImage = reader.result.split(',')[1];
-            const key = localStorage.getItem('key');
+    <div class="card summary-card">
+        <div><label style="color:#94a3b8">PENDING REBATES</label><div id="dashPending" class="summary-val">$0.00</div></div>
+        <div><label style="color:#94a3b8">EST. NET OUTLAY</label><div id="dashNet" class="summary-val">$0.00</div></div>
+    </div>
+
+    <div class="card">
+        <label for="cam" class="camera-label">📸 SNAP RECEIPT</label>
+        <input type="file" id="cam" accept="image/*" capture="environment" style="display:none;">
+        <div id="status" style="text-align:center; font-size:12px; margin-top:10px; font-weight:bold;">Ready for scan</div>
+        <div id="debug" class="debug-box"></div>
+    </div>
+
+    <div id="reviewSection" style="display:none;">
+        <div class="card" id="headerCard">
+            <div id="storeTag" class="store-tag">General</div>
+            <div class="grid-2">
+                <div><label>Store</label><input type="text" id="globalStore" oninput="updateTheme()"></div>
+                <div><label>Date</label><input type="date" id="globalDate"></div>
+            </div>
             
-            document.getElementById('status').innerText = "🧠 AI ANALYZING...";
+            <div id="mLogic" class="menards-ui" style="display:none; margin-top:10px;">
+                <label style="display:flex; align-items:center; gap:8px; color:var(--menards); font-size:12px;">
+                    <input type="checkbox" id="m11" checked> Apply 11% Rebate?
+                </label>
+            </div>
+
+            <div class="grid-2" style="margin-top:10px;">
+                <div><label>Orig Date</label><input type="date" id="origDate"></div>
+                <div><label>Payment</label><input type="text" id="payMethod" placeholder="Visa/Lowe's Card"></div>
+            </div>
+        </div>
+
+        <div id="itemContainer"></div>
+        <button id="syncBtn" class="btn-sync">🚀 SYNC TO GOOGLE SHEET</button>
+    </div>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+        let items = []; let rawImage = "";
+
+        // UI SETUP
+        window.saveSettings = () => {
+            localStorage.setItem('key', document.getElementById('apiKey').value);
+            localStorage.setItem('url', document.getElementById('sheetUrl').value);
+            document.getElementById('configPanel').style.display = 'none';
+        };
+
+        // THEME ENGINE (Case Insensitive)
+        window.updateTheme = () => {
+            const storeVal = (document.getElementById('globalStore').value || "").toLowerCase();
+            const tag = document.getElementById('storeTag');
+            const header = document.getElementById('headerCard');
+            const mLogic = document.getElementById('mLogic');
+
+            const isMenards = storeVal.includes('menards');
+            const isLowes = storeVal.includes('lowe');
+
+            tag.innerText = isMenards ? 'Menards' : (isLowes ? "Lowe's" : "General");
+            tag.style.background = isMenards ? 'var(--menards)' : (isLowes ? 'var(--lowes)' : '#94a3b8');
+            
+            // Show/Hide the 11% toggle
+            mLogic.style.display = isMenards ? 'block' : 'none';
+            
+            if (isMenards) header.style.borderColor = "var(--menards)";
+            else if (isLowes) header.style.borderColor = "var(--lowes)";
+        };
+
+        // SCAN LOGIC
+        document.getElementById('cam').addEventListener('change', async (e) => {
+            const file = e.target.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                rawImage = reader.result.split(',')[1];
+                const key = localStorage.getItem('key');
+                if(!key) { alert("Add API Key in Settings (⚙️)"); return; }
+
+                document.getElementById('status').innerText = "🧠 AI ANALYZING...";
+                document.getElementById('debug').style.display = 'none';
+
+                try {
+                    const genAI = new GoogleGenerativeAI(key);
+                    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+                    const prompt = `Return JSON only: {"store":"str","date":"YYYY-MM-DD","origDate":"YYYY-MM-DD","isReturn":bool,"items":[{"itemNo":"str","description":"str","qty":num,"unitPrice":num,"isTaxable":bool}]}. If it's a RETURN, make qty/price negative.`;
+                    
+                    const result = await model.generateContent([prompt, {inlineData: {data: rawImage, mimeType: "image/jpeg"}}]);
+                    const data = JSON.parse(result.response.text());
+
+                    document.getElementById('globalStore').value = data.store || "";
+                    document.getElementById('globalDate').value = data.date || "";
+                    document.getElementById('origDate').value = data.origDate || data.date;
+                    
+                    if(data.isReturn) document.getElementById('headerCard').classList.add('return-ui');
+                    
+                    updateTheme(); // Trigger green theme & toggle
+                    items = data.items;
+                    renderReview();
+                    document.getElementById('status').innerText = "✅ SCAN COMPLETE";
+                } catch (err) {
+                    document.getElementById('status').innerText = "❌ AI ERROR";
+                    document.getElementById('debug').innerText = err.message;
+                    document.getElementById('debug').style.display = 'block';
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+
+        window.renderReview = () => {
+            const container = document.getElementById('itemContainer'); container.innerHTML = "";
+            items.forEach((item, i) => {
+                const div = document.createElement('div'); div.className = "item-row";
+                div.innerHTML = `
+                    <input type="text" value="${item.description}" id="desc-${i}" style="font-weight:bold; border:none; width:100%; background:transparent;">
+                    <div class="grid-2">
+                        <div><label>Qty</label><input type="number" step="any" value="${item.qty}" id="qty-${i}"></div>
+                        <div><label>Price</label><input type="number" step="0.01" value="${item.unitPrice}" id="prc-${i}"></div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            document.getElementById('reviewSection').style.display = 'block';
+        };
+
+        // SYNC LOGIC
+        document.getElementById('syncBtn').onclick = async () => {
+            const scriptUrl = localStorage.getItem('url');
+            if(!scriptUrl) { alert("Missing Apps Script URL!"); return; }
+
+            document.getElementById('status').innerText = "☁️ SYNCING...";
+            const storeName = document.getElementById('globalStore').value;
+            const apply11 = storeName.toLowerCase().includes('menards') && document.getElementById('m11').checked;
+
+            const payload = {
+                imageBlob: rawImage,
+                items: items.map((item, i) => {
+                    const q = parseFloat(document.getElementById(`qty-${i}`).value);
+                    const p = parseFloat(document.getElementById(`prc-${i}`).value);
+                    const base = q * p;
+                    return {
+                        date: document.getElementById('globalDate').value,
+                        origDate: document.getElementById('origDate').value,
+                        itemNo: item.itemNo || "N/A",
+                        description: document.getElementById(`desc-${i}`).value,
+                        qty: q,
+                        unitPrice: p,
+                        baseTotal: base.toFixed(2),
+                        pricePlusTax: (base * 1.07).toFixed(2),
+                        priceMinusRebate: apply11 ? (base * 0.89).toFixed(2) : base.toFixed(2),
+                        finalCost: (base * 1.07 - (apply11 ? base * 0.11 : 0)).toFixed(2),
+                        payment: document.getElementById('payMethod').value || "Credit",
+                        category: "General",
+                        rebateID: "",
+                        rebateDesc: apply11 ? "11% Rebate" : "",
+                        rebateApplied: apply11 ? (base * 0.11).toFixed(2) : "0.00",
+                        rebateReceived: "No",
+                        store: storeName
+                    };
+                })
+            };
+
             try {
-                const genAI = new GoogleGenerativeAI(key);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-                const prompt = `Return JSON only: {"store":"str","date":"YYYY-MM-DD","origDate":"YYYY-MM-DD","isReturn":bool,"items":[{"itemNo":"str","description":"str","qty":num,"unitPrice":num,"isTaxable":bool}]}`;
-                const result = await model.generateContent([prompt, {inlineData: {data: rawImage, mimeType: "image/jpeg"}}]);
-                const data = JSON.parse(result.response.text());
-
-                document.getElementById('globalStore').value = data.store || "";
-                document.getElementById('globalDate').value = data.date || "";
-                document.getElementById('origDate').value = data.origDate || data.date;
-                
-                // Fix 2: Force theme and toggle update
-                updateTheme();
-                items = data.items;
-                renderReview(); 
-                document.getElementById('status').innerText = "✅ REVIEW & SYNC";
-            } catch (err) {
-                document.getElementById('status').innerText = "❌ AI ERROR";
-                console.error(err);
+                // Send as a simple POST. 'no-cors' allows the request to fire even if Google doesn't send back a confirmation header.
+                await fetch(scriptUrl, { 
+                    method: 'POST', 
+                    mode: 'no-cors', 
+                    body: JSON.stringify(payload),
+                    headers: { "Content-Type": "text/plain" } 
+                });
+                alert("Success! Check your sheet.");
+                location.reload();
+            } catch (e) { 
+                alert("Sync Error. Check your Script URL.");
+                document.getElementById('debug').innerText = e.message;
+                document.getElementById('debug').style.display = 'block';
             }
         };
-        reader.readAsDataURL(file);
-    });
-
-    // Fix 3: Sync Logic
-    document.getElementById('syncBtn').onclick = async () => {
-        const url = localStorage.getItem('url');
-        if(!url) { alert("Missing Apps Script URL!"); return; }
-
-        document.getElementById('status').innerText = "☁️ SYNCING...";
-        const isMenards = document.getElementById('globalStore').value.toLowerCase().includes('menards');
-        const apply11 = isMenards && document.getElementById('m11') ? document.getElementById('m11').checked : false;
-
-        const payload = {
-            imageBlob: rawImage,
-            items: items.map((item, i) => {
-                const qty = document.getElementById(`qty-${i}`).value;
-                const price = document.getElementById(`prc-${i}`).value;
-                const base = (qty * price).toFixed(2);
-                return {
-                    date: document.getElementById('globalDate').value,
-                    origDate: document.getElementById('origDate').value,
-                    itemNo: item.itemNo || "",
-                    description: document.getElementById(`desc-${i}`).value,
-                    qty: qty,
-                    unitPrice: price,
-                    baseTotal: base,
-                    pricePlusTax: (base * 1.07).toFixed(2), // Example 7% tax
-                    rebateApplied: apply11 ? (base * 0.11).toFixed(2) : "0.00",
-                    store: document.getElementById('globalStore').value
-                };
-            })
-        };
-
-        try {
-            // Updated fetch parameters for better Google compatibility
-            const response = await fetch(url, {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            });
-            alert("Sent! Check Sheet.");
-            location.reload();
-        } catch (e) {
-            alert("Network Error: " + e.message);
-        }
-    };
-</script>
+    </script>
+</body>
+</html>
