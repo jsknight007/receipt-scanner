@@ -3,304 +3,234 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Ledger Pro 3.9</title>
-
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#6366f1">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjEyOCIgZmlsbD0iIzYzNjZmMSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTUlIiBkb21pbmFbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmedG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBmb250LXNpemU9IjMwMCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiPiQ8L3RleHQ+PC9zdmc+">
-
-    <script type="importmap">
-      { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } }
-    </script>
-
+    <title>Ledger Pro 4.4 - Hybrid Engine</title>
+    <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
-        :root { --primary: #6366f1; --success: #22c55e; --danger: #ef4444; --slate: #1e293b; --amber: #fffbeb; }
-        body { font-family: -apple-system, system-ui, sans-serif; padding: 10px; background: #f1f5f9; max-width: 600px; margin: auto; color: var(--slate); }
-        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .card { background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 12px; border: 1px solid #e2e8f0; position: relative; }
-        h3 { margin: 0; font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-        label { display: block; font-size: 10px; font-weight: bold; color: #64748b; margin-bottom: 2px; }
-        input { width: 100%; padding: 10px; margin: 4px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
+        :root { --menards: #15803d; --lowes: #004990; --danger: #dc2626; --slate: #1e293b; --amber: #fff7ed; }
+        body { font-family: -apple-system, system-ui, sans-serif; padding: 12px; background: #f8fafc; color: var(--slate); margin: auto; max-width: 500px; }
+        .card { background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 12px; border: 1px solid #e2e8f0; }
+        .summary-card { background: var(--slate); color: white; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center; }
+        .summary-val { font-size: 1.2rem; font-weight: bold; color: #fbbf24; }
+        .store-tag { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: white; background: #94a3b8; }
+        .menards-ui { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px; border-radius: 8px; margin-top: 8px; }
+        .lowes-ui { background: #eff6ff; border: 1px solid #bfdbfe; padding: 10px; border-radius: 8px; margin-top: 8px; }
+        .return-ui { border: 2px solid var(--danger) !important; background: #fef2f2 !important; }
+        label { display: block; font-size: 10px; font-weight: bold; color: #64748b; margin-bottom: 2px; text-transform: uppercase; }
+        input, select { width: 100%; padding: 10px; margin: 4px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-        .camera-btn { background: var(--primary); color: white; padding: 18px; display: block; border-radius: 12px; cursor: pointer; font-weight: bold; text-align: center; }
-        .settings-toggle { cursor: pointer; font-size: 20px; padding: 5px; }
-        #previewContainer img { width: 100%; border-radius: 12px; margin-top: 10px; }
-        .item-row { background: #fff; padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
-        .calc-box { background: #f8fafc; padding: 8px; border-radius: 8px; font-size: 11px; margin-top: 8px; }
-        .final-badge { background: #e0e7ff; color: var(--primary); padding: 8px; border-radius: 8px; font-weight: bold; font-size: 13px; margin-top: 8px; display: block; border: 1px solid #c7d2fe; line-height: 1.4; }
-        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        button { width: 100%; padding: 14px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
-        .btn-success { background: var(--success); color: white; }
-        .btn-danger { background: #e2e8f0; color: var(--danger); }
-        #status { text-align: center; margin: 10px; font-weight: 600; color: var(--primary); }
-        .chip-container { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; min-height: 20px; }
-        .cat-chip { background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 6px; font-size: 10px; cursor: pointer; border: 1px solid #e2e8f0; }
-        .warning-label { color: var(--danger); font-size: 9px; }
+        .item-row { background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #e2e8f0; position: relative; }
+        .final-badge { background: #f1f5f9; padding: 8px; border-radius: 6px; font-size: 12px; margin-top: 8px; border-left: 4px solid #6366f1; }
+        .btn-sync { background: #10b981; color: white; width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .camera-label { background: #6366f1; color: white; padding: 20px; display: block; border-radius: 12px; text-align: center; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        #configPanel { display:none; background: var(--amber); border: 2px dashed #fbbf24; }
     </style>
 </head>
 <body>
 
-    <div class="header-row">
-        <h2 style="font-size: 1.2rem; margin:0;">AI Ledger Pro</h2>
-        <span class="settings-toggle" onclick="toggleConfig()">⚙️</span>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h2 style="margin:0;">Ledger Pro <span style="font-size:0.8rem; opacity:0.6;">v4.4</span></h2>
+        <button onclick="document.getElementById('configPanel').style.display='block'" style="background:none; border:none; font-size:1.5rem;">⚙️</button>
     </div>
 
-    <div id="configPanel" class="card" style="display:none; background: var(--amber);">
-        <h3>⚙️ System Configuration</h3>
-        <label>Gemini API Key</label>
-        <input type="password" id="apiKey" placeholder="Enter Key">
-        <label>Google Apps Script URL</label>
-        <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/...">
-        <button class="btn-success" onclick="saveSettings()" style="margin-top:10px;">Save & Close</button>
+    <div class="card summary-card">
+        <div><label style="color:#94a3b8">PENDING REBATES</label><div id="dashPending" class="summary-val">$0.00</div></div>
+        <div><label style="color:#94a3b8">EST. NET OUTLAY</label><div id="dashNet" class="summary-val">$0.00</div></div>
+    </div>
+
+    <div id="configPanel" class="card">
+        <label>Gemini API Key</label><input type="password" id="apiKey">
+        <label>Google Script URL</label><input type="text" id="sheetUrl">
+        <button onclick="saveSettings()" style="width:100%; padding:10px; margin-top:10px; border-radius:8px; background:var(--slate); color:white;">Save Settings</button>
+    </div>
+
+    <div class="card" id="headerCard">
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <span id="storeTag" class="store-tag">General</span>
+            <span id="returnTag" class="store-tag" style="background:var(--danger); display:none;">Return Receipt</span>
+        </div>
+        
+        <div class="grid-2">
+            <div><label>Store</label><input type="text" id="globalStore" oninput="updateTheme()"></div>
+            <div><label>Date</label><input type="date" id="globalDate"></div>
+        </div>
+        
+        <div class="grid-2" style="margin-top:5px;">
+            <div><label>Orig. Date (Returns)</label><input type="date" id="origDate"></div>
+            <div><label>Payment</label><input type="text" id="payMethod" placeholder="Lowe's Card / Visa"></div>
+        </div>
+
+        <div id="mLogic" class="menards-ui" style="display:none;">
+            <label style="display:flex; align-items:center; gap:8px; color:var(--menards); font-size:12px;">
+                <input type="checkbox" id="m11" checked onchange="renderReview()"> Apply 11% Rebate Calculation?
+            </label>
+        </div>
+        <div id="lLogic" class="lowes-ui" style="display:none;">
+            <label style="display:flex; align-items:center; gap:8px; color:var(--lowes); font-size:12px;">
+                <input type="checkbox" id="l5" checked onchange="renderReview()"> Apply 5% CC Discount Logic?
+            </label>
+        </div>
     </div>
 
     <div class="card">
-        <h3>1. Trip Meta</h3>
-        <div class="grid-2">
-            <div><label>Store</label><input type="text" id="globalStore" placeholder="Store Name"></div>
-            <div>
-                <label>Date <span class="warning-label">(Manual if blank)</span></label>
-                <input type="date" id="globalDate">
-            </div>
-        </div>
-        <div class="grid-2">
-            <div>
-                <label>Payment Method</label>
-                <input type="text" id="paymentMethod" placeholder="e.g. Visa 1234">
-                <div id="payment-history-container" class="chip-container"></div>
-            </div>
-            <div><label>Rebate ID #</label><input type="text" id="rebateNum" placeholder="e.g. 11% Rebate"></div>
-        </div>
-        <div class="grid-2">
-            <div><label>Default Tax %</label><input type="number" id="defaultTax" value="6" step="0.1"></div>
-            <div><label>Default Rebate %</label><input type="number" id="globalRebate" value="11"></div>
-        </div>
-        <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
-            <input type="checkbox" id="saveImage" checked> <label style="font-size:0.85rem;">Save Photo to Drive?</label>
-        </div>
+        <label for="cam" class="camera-label">📸 SCAN NEW RECEIPT</label>
+        <input type="file" id="cam" accept="image/*" capture="environment" style="display:none;">
+        <div id="status" style="text-align:center; font-size:12px; margin-top:10px; font-weight:bold;">Ready</div>
     </div>
-
-    <div class="card">
-        <label for="cameraInput" class="camera-btn">📸 SNAP RECEIPT</label>
-        <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
-        <div id="previewContainer" style="display:none;"><img id="imagePreview"></div>
-    </div>
-
-    <div id="status">Ready</div>
 
     <div id="reviewSection" style="display:none;">
-        <h3>2. Line Item Ledger</h3>
         <div id="itemContainer"></div>
-        <div class="btn-group">
-            <button class="btn-danger" onclick="clearAllFields()">Discard / Reset</button>
-            <button id="sendBtn" class="btn-success">Sync to Sheet</button>
-        </div>
+        <button id="syncBtn" class="btn-sync">🚀 SYNC 17 COLUMNS</button>
     </div>
 
     <script type="module">
         import { GoogleGenerativeAI } from "@google/generative-ai";
 
-        let localItems = [];
-        let base64Image = "";
+        let items = [];
+        let rawImage = "";
 
-        // PWA Registration
-        if ('serviceWorker' in navigator && location.protocol === 'https:') {
-            navigator.serviceWorker.register('sw.js');
-        }
-
-        // --- UI HELPERS ---
-        window.toggleConfig = () => {
-            const panel = document.getElementById('configPanel');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-        };
-
+        // UI HELPERS
         window.saveSettings = () => {
-            localStorage.setItem('gemini_key', document.getElementById('apiKey').value);
-            localStorage.setItem('sheet_url', document.getElementById('sheetUrl').value);
-            document.getElementById('configPanel').style.display='none';
-            document.getElementById('status').innerText = "Settings Saved";
+            localStorage.setItem('key', document.getElementById('apiKey').value);
+            localStorage.setItem('url', document.getElementById('sheetUrl').value);
+            document.getElementById('configPanel').style.display = 'none';
         };
 
-        // Load keys into fields if they exist
-        document.getElementById('apiKey').value = localStorage.getItem('gemini_key') || "";
-        document.getElementById('sheetUrl').value = localStorage.getItem('sheet_url') || "";
-        if(!localStorage.getItem('gemini_key')) document.getElementById('configPanel').style.display='block';
+        window.updateTheme = () => {
+            const store = document.getElementById('globalStore').value.toLowerCase();
+            const tag = document.getElementById('storeTag');
+            document.getElementById('mLogic').style.display = store.includes('menards') ? 'block' : 'none';
+            document.getElementById('lLogic').style.display = store.includes('lowe') ? 'block' : 'none';
+            tag.innerText = store.includes('menards') ? 'Menards' : (store.includes('lowe') ? "Lowe's" : "General");
+            tag.style.background = store.includes('menards') ? 'var(--menards)' : (store.includes('lowe') ? 'var(--lowes)' : '#94a3b8');
+        };
 
-        // Date & History logic
-        function formatToHTMLDate(rawDate) {
-            if (!rawDate) return "";
-            let clean = rawDate.replace(/[^\d\-/]/g, '').replace(/\//g, '-');
-            if (/\d{4}-\d{2}-\d{2}/.test(clean)) return clean;
-            let parts = clean.split('-');
-            if (parts.length === 3) {
-                if (parts[2].length === 4) return `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
-                if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+        // CALCULATION LOGIC
+        window.recalc = (i) => {
+            const store = document.getElementById('globalStore').value.toLowerCase();
+            const qty = parseFloat(document.getElementById(`q-${i}`).value) || 0;
+            const unit = parseFloat(document.getElementById(`u-${i}`).value) || 0;
+            const taxRate = (parseFloat(document.getElementById(`tr-${i}`).value) || 0) / 100;
+            
+            let baseT, taxA, pPlusTax, rebA, finalC, pMinReb;
+
+            if (store.includes('lowe')) {
+                const disc = document.getElementById('l5').checked ? 0.95 : 1;
+                baseT = qty * (unit * disc);
+                taxA = baseT * taxRate;
+                pPlusTax = baseT + taxA;
+                rebA = 0;
+                pMinReb = baseT;
+                finalC = pPlusTax;
+            } else if (store.includes('menards')) {
+                const is11 = document.getElementById('m11').checked;
+                const manualReb = parseFloat(document.getElementById(`mo-${i}`).value) || 0;
+                baseT = qty * unit;
+                taxA = baseT * taxRate;
+                pPlusTax = baseT + taxA;
+                rebA = is11 ? (baseT * 0.11) : manualReb;
+                pMinReb = baseT - rebA;
+                finalC = pPlusTax - rebA;
+            } else {
+                baseT = qty * unit;
+                taxA = baseT * taxRate;
+                pPlusTax = baseT + taxA;
+                rebA = 0; pMinReb = baseT; finalC = pPlusTax;
             }
-            return "";
-        }
 
-        function renderPaymentHistory() {
-            const history = JSON.parse(localStorage.getItem('pay_history') || "[]");
-            const container = document.getElementById('payment-history-container');
-            container.innerHTML = history.map(pay => `<div class="cat-chip" onclick="document.getElementById('paymentMethod').value='${pay}'">${pay}</div>`).join('');
-        }
-        renderPaymentHistory();
+            document.getElementById(`res-${i}`).innerHTML = `
+                <div class="grid-2">
+                    <span>Tax: $${taxA.toFixed(2)}</span>
+                    <span>Final: <b>$${finalC.toFixed(2)}</b></span>
+                </div>
+            `;
+            items[i].calc = { baseT, pPlusTax, pMinReb, finalC, rebA };
+        };
 
-        // --- CAMERA & AI ---
-        document.getElementById('cameraInput').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            document.getElementById('imagePreview').src = URL.createObjectURL(file);
-            document.getElementById('previewContainer').style.display = "block";
-            document.getElementById('status').innerText = "🧠 Analyzing Receipt...";
+        // AI ENGINE
+        document.getElementById('cam').addEventListener('change', async (e) => {
+            const file = e.target.files[0]; if(!file) return;
+            document.getElementById('status').innerText = "Analyzing Receipt...";
             const reader = new FileReader();
             reader.onloadend = async () => {
-                base64Image = reader.result.split(',')[1];
-                await analyzeImage(base64Image);
+                rawImage = reader.result.split(',')[1];
+                const genAI = new GoogleGenerativeAI(localStorage.getItem('key'));
+                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", generationConfig: {responseMimeType: "application/json"} });
+                
+                const prompt = `Return JSON only: {"store":"str","date":"YYYY-MM-DD","origDate":"YYYY-MM-DD","isReturn":bool,"items":[{"itemNo":"str","description":"str","qty":num,"unitPrice":num,"isTaxable":bool}]}. 
+                Note: If it's a return, make Qty/Price negative and find the original purchase date.`;
+
+                try {
+                    const result = await model.generateContent([prompt, {inlineData: {data: rawImage, mimeType: "image/jpeg"}}]);
+                    const data = JSON.parse(result.response.text());
+                    document.getElementById('globalStore').value = data.store || "";
+                    document.getElementById('globalDate').value = data.date || "";
+                    document.getElementById('origDate').value = data.origDate || data.date;
+                    document.getElementById('returnTag').style.display = data.isReturn ? 'block' : 'none';
+                    if(data.isReturn) document.getElementById('headerCard').classList.add('return-ui');
+                    updateTheme();
+                    items = data.items;
+                    renderReview();
+                    document.getElementById('status').innerText = "Review Required";
+                } catch (err) { document.getElementById('status').innerText = "AI Error. Check Key."; }
             };
             reader.readAsDataURL(file);
         });
 
-        async function analyzeImage(base64) {
-            const key = localStorage.getItem('gemini_key');
-            if(!key) { alert("Please set API Key first!"); toggleConfig(); return; }
-            try {
-                const genAI = new GoogleGenerativeAI(key);
-                const model = genAI.getGenerativeModel({ 
-                    model: "gemini-3-flash-preview",
-                    generationConfig: { responseMimeType: "application/json" }
-                });
-
-                const prompt = `OCR Extract: Store Name, Transaction Date, and items. 
-                Return JSON: {"store": "str", "date": "YYYY-MM-DD", "items": [{"itemNo": "str", "desc": "str", "qty": num, "unit": num, "total": num, "isTaxable": bool}]}`;
-
-                const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
-                let text = await result.response.text();
-                const data = JSON.parse(text.replace(/```json|```/g, "").trim());
-
-                document.getElementById('globalStore').value = data.store || "";
-                if(data.date) {
-                    const healed = formatToHTMLDate(data.date);
-                    if(healed) document.getElementById('globalDate').value = healed;
-                }
-                
-                localItems = data.items;
-                renderReview();
-                document.getElementById('status').innerText = "✅ Scan Success";
-            } catch (err) { document.getElementById('status').innerText = "❌ Scan Failed"; }
-        }
-
         window.renderReview = () => {
             const container = document.getElementById('itemContainer'); container.innerHTML = "";
-            const defTax = document.getElementById('defaultTax').value;
-            const defRebate = document.getElementById('globalRebate').value;
-            const catHistory = JSON.parse(localStorage.getItem('cat_history') || "[]");
-
-            localItems.forEach((item, i) => {
+            items.forEach((item, i) => {
                 const div = document.createElement('div'); div.className = "item-row";
-                let chipsHtml = catHistory.map(cat => `<div class="cat-chip" onclick="setCat(${i}, '${cat}')">${cat}</div>`).join('');
                 div.innerHTML = `
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="checkbox" checked id="sync-${i}" style="width:20px; height:20px;">
-                        <input type="text" value="${item.desc}" id="desc-${i}" style="font-weight:bold;">
+                    <div style="font-size:13px; font-weight:bold; margin-bottom:8px;">${item.description}</div>
+                    <div class="grid-2">
+                        <div><label>SKU</label><input type="text" value="${item.itemNo||''}" id="sku-${i}"></div>
+                        <div><label>Category</label><select id="cat-${i}"><option>Lumber</option><option>Hardware</option><option>Tools</option><option>Electrical</option><option>Plumbing</option></select></div>
                     </div>
-                    <div class="grid-2" style="margin-top:8px;">
-                        <div><label>Item #</label><input type="text" value="${item.itemNo || ''}" id="no-${i}"></div>
-                        <div><label>Category</label><input type="text" id="cat-${i}"><div class="chip-container">${chipsHtml}</div></div>
+                    <div class="grid-3">
+                        <div><label>Qty</label><input type="number" step="any" value="${item.qty}" id="q-${i}" oninput="recalc(${i})"></div>
+                        <div><label>Unit $</label><input type="number" step="0.01" value="${item.unitPrice}" id="u-${i}" oninput="recalc(${i})"></div>
+                        <div><label>Tax %</label><input type="number" value="${item.isTaxable?7:0}" id="tr-${i}" oninput="recalc(${i})"></div>
                     </div>
-                    <div class="grid-3" style="margin-top:8px;">
-                        <div><label>Qty</label><input type="number" value="${item.qty || 1}" id="qty-${i}" oninput="recalc(${i})"></div>
-                        <div><label>Unit $</label><input type="number" step="0.01" value="${item.unit || item.total}" id="unit-${i}" oninput="recalc(${i})"></div>
-                        <div><label>Base</label><input type="number" step="0.01" value="${item.total}" id="base-${i}" oninput="recalc(${i})"></div>
+                    <div id="mExt-${i}" style="display:${document.getElementById('globalStore').value.toLowerCase().includes('menards')?'block':'none'}">
+                        <label>Custom Rebate $</label><input type="number" step="0.01" id="mo-${i}" oninput="recalc(${i})">
                     </div>
-                    <div class="calc-box grid-2">
-                        <div><label>Tax %</label><input type="number" value="${item.isTaxable ? defTax : 0}" id="taxR-${i}" oninput="recalc(${i})"></div>
-                        <div><label>Rebate</label><input type="text" value="${defRebate}%" id="rebR-${i}" oninput="recalc(${i})"></div>
-                    </div>
-                    <div id="results-${i}" class="final-badge">Calculating...</div>
+                    <div id="res-${i}" class="final-badge"></div>
                 `;
                 container.appendChild(div); recalc(i);
             });
             document.getElementById('reviewSection').style.display = "block";
         };
 
-        window.setCat = (idx, val) => { document.getElementById(`cat-${idx}`).value = val; };
-
-        window.recalc = (i) => {
-            const baseInput = document.getElementById(`base-${i}`);
-            const qty = parseFloat(document.getElementById(`qty-${i}`).value) || 1;
-            const unit = parseFloat(document.getElementById(`unit-${i}`).value) || 0;
-            if (document.activeElement !== baseInput) { baseInput.value = (qty * unit).toFixed(2); }
-            const base = parseFloat(baseInput.value) || 0;
-            const taxR = parseFloat(document.getElementById(`taxR-${i}`).value) || 0;
-            const rebRaw = document.getElementById(`rebR-${i}`).value;
-            const taxAmt = Math.round(base * (taxR / 100) * 100) / 100;
-            const pricePlusTax = Math.round((base + taxAmt) * 100) / 100;
-            const rebAmt = rebRaw.includes('%') ? Math.round(base * (parseFloat(rebRaw) / 100) * 100) / 100 : Math.round((parseFloat(rebRaw) || 0) * 100) / 100;
-            const finalCost = Math.round((pricePlusTax - rebAmt) * 100) / 100;
-            document.getElementById(`results-${i}`).innerHTML = `<b>Final: $${finalCost.toFixed(2)}</b><br><small>($${pricePlusTax.toFixed(2)} w/ tax) - $${rebAmt.toFixed(2)} reb</small>`;
-            localItems[i].calculated = { pricePlusTax, rebAmt, finalCost };
-        };
-
-        document.getElementById('sendBtn').addEventListener('click', async () => {
-            const sheetUrl = localStorage.getItem('sheet_url');
-            if(!sheetUrl) { alert("Missing Sheet URL!"); toggleConfig(); return; }
-            const usedCats = [];
-            const payVal = document.getElementById('paymentMethod').value.trim();
-            
-            const dataToSend = localItems.filter((_, i) => document.getElementById(`sync-${i}`).checked).map((item, i) => {
-                const catValue = document.getElementById(`cat-${i}`).value.trim();
-                if (catValue && !usedCats.includes(catValue)) usedCats.push(catValue);
-                return {
+        // SYNC ENGINE
+        document.getElementById('syncBtn').onclick = async () => {
+            document.getElementById('status').innerText = "Uploading to Sheet & Drive...";
+            const payload = {
+                imageBlob: rawImage,
+                items: items.map((item, i) => ({
                     date: document.getElementById('globalDate').value,
-                    store: document.getElementById('globalStore').value,
-                    payment: payVal,
-                    rebateID: document.getElementById('rebateNum').value,
-                    itemNo: document.getElementById(`no-${i}`).value,
-                    description: document.getElementById(`desc-${i}`).value,
-                    category: catValue,
-                    qty: document.getElementById(`qty-${i}`).value,
-                    unitPrice: document.getElementById(`unit-${i}`).value,
-                    baseTotal: document.getElementById(`base-${i}`).value,
-                    taxRate: document.getElementById(`taxR-${i}`).value,
-                    pricePlusTax: item.calculated.pricePlusTax.toFixed(2),
-                    rebateApplied: item.calculated.rebAmt.toFixed(2),
-                    finalCost: item.calculated.finalCost.toFixed(2)
-                };
-            });
+                    origDate: document.getElementById('origDate').value,
+                    itemNo: document.getElementById(`sku-${i}`).value,
+                    description: item.description,
+                    qty: document.getElementById(`q-${i}`).value,
+                    unitPrice: document.getElementById(`u-${i}`).value,
+                    baseTotal: item.calc.baseT.toFixed(2),
+                    pricePlusTax: item.calc.pPlusTax.toFixed(2),
+                    priceMinusRebate: item.calc.pMinReb.toFixed(2),
+                    finalCost: item.calc.finalC.toFixed(2),
+                    payment: document.getElementById('payMethod').value,
+                    category: document.getElementById(`cat-${i}`).value,
+                    rebateID: "", // Manual entry if needed
+                    rebateDesc: document.getElementById('globalStore').value.includes('Menards') ? "11% Rebate" : "",
+                    rebateApplied: item.calc.rebA.toFixed(2)
+                }))
+            };
 
-            if (usedCats.length > 0) {
-                let catHist = JSON.parse(localStorage.getItem('cat_history') || "[]");
-                usedCats.forEach(c => { catHist = catHist.filter(h => h !== c); catHist.unshift(c); });
-                localStorage.setItem('cat_history', JSON.stringify(catHist.slice(0, 5)));
-            }
-            if (payVal) {
-                let payHist = JSON.parse(localStorage.getItem('pay_history') || "[]");
-                payHist = payHist.filter(h => h !== payVal); payHist.unshift(payVal);
-                localStorage.setItem('pay_history', JSON.stringify(payHist.slice(0, 5)));
-                renderPaymentHistory();
-            }
-
-            document.getElementById('status').innerText = "📤 Syncing...";
             try {
-                await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({items: dataToSend, imageFile: base64Image, saveImage: document.getElementById('saveImage').checked}) });
-                document.getElementById('status').innerText = "🚀 Success!";
-                setTimeout(clearAllFields, 2000);
-            } catch (e) { document.getElementById('status').innerText = "❌ Sync Error"; }
-        });
-
-        window.clearAllFields = () => {
-            document.getElementById('globalStore').value = "";
-            document.getElementById('globalDate').value = "";
-            document.getElementById('paymentMethod').value = "";
-            document.getElementById('rebateNum').value = "";
-            document.getElementById('reviewSection').style.display = "none";
-            document.getElementById('previewContainer').style.display = "none";
-            document.getElementById('cameraInput').value = "";
-            document.getElementById('status').innerText = "Ready";
+                await fetch(localStorage.getItem('url'), { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+                alert("Success! Check your Sheet.");
+                location.reload();
+            } catch (e) { alert("Sync Failed. Check Script URL."); }
         };
     </script>
 </body>
