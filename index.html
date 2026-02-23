@@ -93,8 +93,8 @@
                 try {
                     const genAI = new GoogleGenerativeAI(key);
                     const model = genAI.getGenerativeModel({ 
-                        model: "gemini-3-flash", // Using the 2026 current standard
-                        generationConfig: { responseMimeType: "application/json" }
+                        model: "gemini-2.5-flash", 
+                        generationConfig: { responseMimeType: "application/json" } 
                     });
 
                     const prompt = `Return JSON only: {"store":"str","date":"YYYY-MM-DD","origDate":"YYYY-MM-DD","isReturn":bool,"items":[{"itemNo":"str","description":"str","qty":num,"unitPrice":num,"isTaxable":bool}]}. CRITICAL: If receipt is a RETURN, make qty and unitPrice negative.`;
