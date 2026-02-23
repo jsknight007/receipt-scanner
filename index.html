@@ -25,6 +25,15 @@
         .camera-label { background: #6366f1; color: white; padding: 20px; display: block; border-radius: 12px; text-align: center; font-weight: bold; cursor: pointer; margin-top: 10px; }
         #configPanel { display:none; background: var(--amber); border: 2px dashed #fbbf24; }
     </style>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+    </script>
 </head>
 <body>
 
