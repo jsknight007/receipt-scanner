@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Pro v4.6</title>
+    <title>Ledger Pro v4.7 DEBUG</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
-        :root { --menards: #15803d; --slate: #1e293b; }
+        :root { --menards: #15803d; --slate: #1e293b; --err: #be123c; }
         body { font-family: sans-serif; background: #f1f5f9; padding: 15px; max-width: 500px; margin: auto; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; }
         .camera-btn { background: #6366f1; color: white; padding: 20px; text-align: center; border-radius: 12px; font-weight: bold; cursor: pointer; display: block; }
-        .sync-btn { background: #10b981; color: white; width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; margin-top: 10px; }
+        .sync-btn { background: #10b981; color: white; width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; }
         input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-        #config { display: none; background: #fffbeb; border: 1px solid #fef3c7; }
+        #config { display: none; background: #fffbeb; }
+        .debug-panel { background: #0f172a; color: #4ade80; padding: 10px; border-radius: 8px; font-family: monospace; font-size: 11px; overflow-x: auto; white-space: pre-wrap; margin-top: 20px; border-top: 4px solid var(--err); }
         .item { border-bottom: 1px solid #eee; padding: 10px 0; }
         label { font-size: 0.7rem; font-weight: bold; color: #667; text-transform: uppercase; }
     </style>
@@ -20,7 +21,7 @@
 <body>
 
     <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-        <h3 style="margin:0">Ledger Pro v4.6</h3>
+        <h3 style="margin:0">Ledger Pro <span style="color:var(--err)">DEBUG</span></h3>
         <button onclick="toggleConfig()" style="background:none; border:none; font-size:1.2rem;">⚙️</button>
     </div>
 
@@ -33,34 +34,40 @@
     <div class="card">
         <label for="fileIn" class="camera-btn">📷 SCAN RECEIPT</label>
         <input type="file" id="fileIn" accept="image/*" capture="environment" style="display:none">
-        <div id="status" style="text-align:center; margin-top:10px; font-weight:bold; color:#475569;">Ready</div>
+        <div id="status" style="text-align:center; margin-top:10px; font-weight:bold;">Ready</div>
     </div>
 
     <div id="review" style="display:none">
         <div class="card" id="headerCard">
             <div id="mLogic" style="display:none; background:#dcfce7; padding:10px; border-radius:8px; margin-bottom:10px;">
-                <label style="color:var(--menards)"><input type="checkbox" id="m11" checked> Apply 11% Rebate Calculation</label>
+                <label style="color:var(--menards)"><input type="checkbox" id="m11" checked> Apply 11% Rebate</label>
             </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                 <div><label>Store</label><input type="text" id="store" oninput="checkStore()"></div>
                 <div><label>Date</label><input type="date" id="date"></div>
             </div>
-            <label>Payment Method</label><input type="text" id="pay" placeholder="e.g. Visa 1234">
         </div>
         <div id="items" class="card"></div>
         <button onclick="sync()" class="sync-btn">🚀 SYNC TO SHEET</button>
+    </div>
+
+    <div class="debug-panel">
+        <div style="color:#94a3b8; border-bottom:1px solid #334155; margin-bottom:5px; padding-bottom:2px;">RAW AI RESPONSE LOG:</div>
+        <div id="debugOut">Waiting for scan...</div>
     </div>
 
     <script type="module">
         import { GoogleGenerativeAI } from "@google/generative-ai";
         let capturedItems = []; let base64Img = "";
 
+        const log = (msg) => { document.getElementById('debugOut').innerText = msg; console.log(msg); };
+
         window.toggleConfig = () => { const c = document.getElementById('config'); c.style.display = c.style.display === 'block' ? 'none' : 'block'; };
         window.save = () => { localStorage.setItem('k', document.getElementById('key').value); localStorage.setItem('u', document.getElementById('url').value); toggleConfig(); };
+        
         window.checkStore = () => { 
-            const isM = document.getElementById('store').value.toLowerCase().includes('menards');
+            const isM = document.getElementById('store').value.toUpperCase().includes('MENARDS');
             document.getElementById('mLogic').style.display = isM ? 'block' : 'none';
-            document.getElementById('headerCard').style.borderLeft = isM ? "5px solid var(--menards)" : "none";
         };
 
         document.getElementById('fileIn').onchange = async (e) => {
@@ -69,90 +76,88 @@
             reader.onloadend = async () => {
                 base64Img = reader.result.split(',')[1];
                 const key = localStorage.getItem('k');
-                if(!key) return alert("Set API Key in Settings!");
+                if(!key) return alert("Set API Key!");
 
-                document.getElementById('status').innerText = "🧠 AI ANALYZING...";
+                document.getElementById('status').innerText = "🧠 ANALYZING...";
+                log("Starting Gemini API Call...");
+
                 try {
                     const genAI = new GoogleGenerativeAI(key);
                     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-                    const prompt = `Return JSON only: {"store":"str","date":"YYYY-MM-DD","items":[{"description":"str","qty":num,"unitPrice":num}]}`;
+                    const prompt = `Return ONLY a JSON object: {"store":"str","date":"YYYY-MM-DD","items":[{"description":"str","qty":num,"unitPrice":num}]}`;
                     
                     const result = await model.generateContent([prompt, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
                     const response = await result.response;
-                    const text = response.text();
-                    const data = JSON.parse(text);
+                    const rawText = response.text();
+                    
+                    log(rawText); // SHOW RAW DATA IN DEBUG PANEL
+
+                    // Regex to find the JSON part
+                    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) throw new Error("No JSON found in response");
+                    
+                    const data = JSON.parse(jsonMatch[0]);
+                    log("Success: JSON Parsed.");
 
                     document.getElementById('store').value = data.store || "";
                     document.getElementById('date').value = data.date || "";
-                    capturedItems = data.items;
+                    capturedItems = data.items || [];
                     
                     const cont = document.getElementById('items'); cont.innerHTML = "";
                     capturedItems.forEach((it, i) => {
                         cont.innerHTML += `<div class="item">
                             <input type="text" value="${it.description}" id="d-${i}">
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                                <input type="number" value="${it.qty}" id="q-${i}">
-                                <input type="number" value="${it.unitPrice}" id="p-${i}">
+                                <input type="number" step="any" value="${it.qty}" id="q-${i}">
+                                <input type="number" step="0.01" value="${it.unitPrice}" id="p-${i}">
                             </div>
                         </div>`;
                     });
 
                     checkStore();
                     document.getElementById('review').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ SCAN READY";
-                } catch (err) { alert(err.message); document.getElementById('status').innerText = "❌ ERROR"; }
+                    document.getElementById('status').innerText = "✅ DONE";
+                } catch (err) { 
+                    log("CRITICAL ERROR: " + err.message);
+                    document.getElementById('status').innerText = "❌ ERROR"; 
+                }
             };
             reader.readAsDataURL(file);
         };
 
-window.sync = async () => {
-    document.getElementById('status').innerText = "☁️ SYNCING...";
-    const url = localStorage.getItem('u');
-    const isM = document.getElementById('store').value.toLowerCase().includes('menards');
-    const use11 = isM && document.getElementById('m11').checked;
+        window.sync = async () => {
+            log("Starting Sync...");
+            const url = localStorage.getItem('u');
+            const isM = document.getElementById('store').value.toUpperCase().includes('MENARDS');
+            const use11 = isM && document.getElementById('m11').checked;
 
-    const payload = {
-        imageBlob: base64Img,
-        items: capturedItems.map((it, i) => {
-            const q = parseFloat(document.getElementById(`q-${i}`).value);
-            const p = parseFloat(document.getElementById(`p-${i}`).value);
-            const base = q * p;
-            return {
-                date: document.getElementById('date').value,
-                origDate: document.getElementById('date').value,
-                description: document.getElementById(`d-${i}`).value,
-                qty: q, unitPrice: p, baseTotal: base.toFixed(2),
-                pricePlusTax: (base * 1.07).toFixed(2),
-                priceMinusRebate: use11 ? (base * 0.89).toFixed(2) : base.toFixed(2),
-                finalCost: (base * 1.07 - (use11 ? base * 0.11 : 0)).toFixed(2),
-                payment: document.getElementById('pay').value || "Card",
-                category: "Materials",
-                rebateApplied: use11 ? (base * 0.11).toFixed(2) : "0.00",
-                store: document.getElementById('store').value
+            const payload = {
+                imageBlob: base64Img,
+                items: capturedItems.map((it, i) => {
+                    const q = parseFloat(document.getElementById(`q-${i}`).value);
+                    const p = parseFloat(document.getElementById(`p-${i}`).value);
+                    return {
+                        date: document.getElementById('date').value,
+                        origDate: document.getElementById('date').value,
+                        description: document.getElementById(`d-${i}`).value,
+                        qty: q, unitPrice: p, baseTotal: (q*p).toFixed(2),
+                        pricePlusTax: (q*p*1.07).toFixed(2),
+                        priceMinusRebate: use11 ? (q*p*0.89).toFixed(2) : (q*p).toFixed(2),
+                        finalCost: (q*p*1.07 - (use11 ? q*p*0.11 : 0)).toFixed(2),
+                        payment: "Card", category: "Materials",
+                        rebateApplied: use11 ? (q*p*0.11).toFixed(2) : "0.00",
+                        store: document.getElementById('store').value
+                    };
+                })
             };
-        })
-    };
 
-    try {
-        // We use text/plain to avoid the "pre-flight" OPTIONS check
-        // We use mode: 'no-cors' to ignore the redirect response
-        await fetch(url, { 
-            method: 'POST', 
-            mode: 'no-cors', 
-            cache: 'no-cache',
-            headers: { 'Content-Type': 'text/plain' }, 
-            body: JSON.stringify(payload) 
-        });
-
-        // Since we can't read the response in no-cors mode, 
-        // we assume success if the fetch itself didn't throw a network error.
-        alert("Sync command sent! Check sheet in a moment.");
-        location.reload();
-    } catch (e) { 
-        alert("Network Error: " + e.message); 
-        document.getElementById('status').innerText = "❌ FAILED";
-    }
-};
+            try {
+                await fetch(url, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify(payload) });
+                log("Sync command sent to Google.");
+                alert("Sync Sent!");
+                location.reload();
+            } catch (e) { log("Sync Error: " + e.message); }
+        };
     </script>
 </body>
 </html>
