@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Pro v6.1</title>
+    <title>Ledger Pro v6.3</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
         :root { --menards: #15803d; --lowes: #004990; --slate: #1e293b; --accent: #6366f1; }
@@ -15,14 +15,14 @@
         label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
         .item-row { border-bottom: 2px solid #f1f5f9; padding: 12px 0; }
         .row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .live-total { text-align: right; font-weight: 800; color: var(--accent); font-size: 0.9rem; }
-        #grandTotalCard { background: var(--slate); color: white; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; margin-top: 10px; position: sticky; bottom: 10px; }
+        .live-total { text-align: right; font-weight: 800; color: var(--accent); font-size: 0.9rem; margin-top:5px; }
+        #grandTotalCard { background: var(--slate); color: white; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; position: sticky; bottom: 10px; z-index: 10; }
     </style>
 </head>
 <body>
 
     <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0;">
-        <h2 style="margin:0; font-size:1.2rem;">Ledger Pro <small style="color:#94a3b8;">v6.1</small></h2>
+        <h2 style="margin:0; font-size:1.2rem;">Ledger Pro <small>v6.3</small></h2>
         <button onclick="toggleConfig()" style="background:none; border:none; font-size:1.5rem;">⚙️</button>
     </div>
 
@@ -42,20 +42,21 @@
         <div class="card" id="headerCard">
             <div class="row-grid">
                 <div><label>Store</label><input type="text" id="store" oninput="handleStoreChange()"></div>
-                <div><label>Date</label><input type="date" id="date"></div>
+                <div><label>Receipt Date</label><input type="date" id="origDate"></div>
             </div>
-            
-            <div id="rebateUI" style="display:none; background:#f0fdf4; padding:10px; border-radius:8px; margin-top:10px;">
+            <div class="row-grid" style="margin-top:10px;">
+                <div><label>Rebate ID</label><input type="text" id="rebId" placeholder="2405"></div>
+                <div><label>Rebate Desc</label><input type="text" id="rebDesc" placeholder="11% Sale"></div>
+            </div>
+            <div id="mLogicUI" style="display:none; margin-top:10px; background:#f0fdf4; padding:8px; border-radius:8px;">
                 <label style="display:flex; align-items:center; gap:8px; color:var(--menards);">
-                    <input type="checkbox" id="m11" checked onchange="handleStoreChange()" style="width:18px; height:18px;"> Apply 11% Menards Rebate
+                    <input type="checkbox" id="m11" checked onchange="calculateAll()"> Apply Menards 11% (Post-Tax)
                 </label>
-                <input type="text" id="rebateNum" placeholder="Rebate # (e.g. 2405)" style="margin-top:5px;">
             </div>
-
-            <div id="discountUI" style="margin-top:10px;">
+            <div id="discUI" style="margin-top:10px;">
                 <div class="row-grid">
-                    <div><label>Global Discount %</label><input type="number" id="globalDisc" value="0" oninput="calculateAll()"></div>
-                    <div><label>Payment</label><input type="text" id="pay" placeholder="Visa"></div>
+                    <div><label>Global Discount %</label><input type="number" id="gDisc" value="0" oninput="calculateAll()"></div>
+                    <div><label>Payment</label><input type="text" id="pay" placeholder="Lowes Card"></div>
                 </div>
             </div>
         </div>
@@ -63,11 +64,13 @@
         <div id="itemsContainer" class="card"><div id="itemsList"></div></div>
 
         <div id="grandTotalCard">
-            <span>FINAL TOTAL:</span>
+            <span>EST. GRAND TOTAL:</span>
             <span id="grandDisplay">$0.00</span>
         </div>
-        <button onclick="sync()" class="sync-btn" style="margin-top:10px;">🚀 SYNC TO SPREADSHEET</button>
+        <button onclick="sync()" class="sync-btn" style="margin-top:15px; margin-bottom:40px;">🚀 SYNC TO SPREADSHEET</button>
     </div>
+
+    <datalist id="catHistoryList"></datalist>
 
     <script type="module">
         import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -76,51 +79,49 @@
 
         window.toggleConfig = () => { const c = document.getElementById('config'); c.style.display = c.style.display==='none'?'block':'none'; };
         window.save = () => { localStorage.setItem('k', document.getElementById('key').value); localStorage.setItem('u', document.getElementById('url').value); toggleConfig(); };
+        
+        const updateCatUI = () => {
+            const history = JSON.parse(localStorage.getItem('ledgerCats') || '["Materials","Tools","Lumber","Electrical","Plumbing"]');
+            document.getElementById('catHistoryList').innerHTML = history.map(c => `<option value="${c}">`).join('');
+        };
 
         window.handleStoreChange = () => {
             const v = document.getElementById('store').value.toUpperCase();
-            const isMenards = v.includes('MENARDS');
-            document.getElementById('rebateUI').style.display = isMenards ? 'block' : 'none';
-            
-            // If Menards and 11% is checked, hide the global discount box
-            const m11Active = isMenards && document.getElementById('m11').checked;
-            document.getElementById('discountUI').style.display = m11Active ? 'none' : 'block';
-            
+            document.getElementById('mLogicUI').style.display = v.includes('MENARDS') ? 'block' : 'none';
+            document.getElementById('gDisc').value = v.includes('LOWE') ? 5 : 0;
             calculateAll();
         };
 
         window.calculateAll = () => {
-            let totalReceipt = 0;
-            const store = document.getElementById('store').value.toUpperCase();
-            const isMenards = store.includes('MENARDS');
-            const m11Active = isMenards && document.getElementById('m11').checked;
-            const globalDisc = parseFloat(document.getElementById('globalDisc').value || 0) / 100;
+            let runningTotal = 0;
+            const isM = document.getElementById('store').value.toUpperCase().includes('MENARDS');
+            const m11 = isM && document.getElementById('m11').checked;
+            const gD = parseFloat(document.getElementById('gDisc').value || 0) / 100;
 
             capturedItems.forEach((_, i) => {
                 const q = parseFloat(document.getElementById(`q-${i}`).value) || 0;
                 const p = parseFloat(document.getElementById(`p-${i}`).value) || 0;
-                const itemManual = parseFloat(document.getElementById(`r-${i}`)?.value || 0);
-                const isTaxable = document.getElementById(`t-${i}`).checked;
+                const itemManual = parseFloat(document.getElementById(`r-${i}`).value) || 0;
+                const isT = document.getElementById(`t-${i}`).checked;
 
-                let sub = q * p;
-                let final = 0;
+                let base = q * p;
+                let tax = 0, minusRebate = 0, final = 0;
 
-                if (m11Active) {
-                    // POST-TAX REBATE logic (Menards 11%)
-                    const tax = isTaxable ? (sub * TAX_RATE) : 0;
-                    const rebate = (sub * 0.11) + itemManual;
-                    final = sub + tax - rebate;
+                if (m11) {
+                    tax = isT ? (base * TAX_RATE) : 0;
+                    minusRebate = (base * 0.11) + itemManual;
+                    final = base + tax - minusRebate;
                 } else {
-                    // PRE-TAX DISCOUNT logic (Lowe's 5%, Bag Sale, etc)
-                    const discountedSub = sub - (sub * globalDisc) - itemManual;
-                    const tax = isTaxable ? (discountedSub * TAX_RATE) : 0;
+                    let discountedSub = base - (base * gD) - itemManual;
+                    tax = isT ? (discountedSub * TAX_RATE) : 0;
+                    minusRebate = (base * gD) + itemManual;
                     final = discountedSub + tax;
                 }
 
                 document.getElementById(`total-${i}`).innerText = `$${final.toFixed(2)}`;
-                totalReceipt += final;
+                runningTotal += final;
             });
-            document.getElementById('grandDisplay').innerText = `$${totalReceipt.toFixed(2)}`;
+            document.getElementById('grandDisplay').innerText = `$${runningTotal.toFixed(2)}`;
         };
 
         document.getElementById('fileIn').onchange = async (e) => {
@@ -132,85 +133,100 @@
                 try {
                     const genAI = new GoogleGenerativeAI(localStorage.getItem('k'));
                     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-                    const prompt = `Return ONLY JSON: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":1,"unitPrice":1.00}]}`;
-                    const res = await model.generateContent([prompt, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
-                    let text = res.response.text();
+                    const res = await model.generateContent([`Return JSON only: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":1,"unitPrice":1.00}]}`, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
+                    const text = res.response.text();
                     const data = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1));
                     
                     document.getElementById('store').value = data.store || "";
-                    document.getElementById('date').value = data.date || "";
-                    capturedItems = data.items || [];
+                    document.getElementById('origDate').value = data.date || "";
+                    capturedItems = data.items;
                     
                     const list = document.getElementById('itemsList'); list.innerHTML = "";
                     capturedItems.forEach((it, i) => {
                         list.innerHTML += `<div class="item-row">
-                            <label>Item</label><input type="text" value="${it.description}" id="d-${i}">
+                            <label>Description</label><input type="text" value="${it.description}" id="d-${i}">
                             <div class="row-grid">
                                 <div><label>Qty</label><input type="number" step="any" value="${it.qty}" id="q-${i}" oninput="calculateAll()"></div>
                                 <div><label>Price</label><input type="number" step="0.01" value="${it.unitPrice}" id="p-${i}" oninput="calculateAll()"></div>
                             </div>
                             <div class="row-grid" style="margin-top:5px;">
-                                <div><label>Manual Disc/Rebate ($)</label><input type="number" value="0" id="r-${i}" oninput="calculateAll()"></div>
+                                <div><label>Manual Disc ($)</label><input type="number" value="0" id="r-${i}" oninput="calculateAll()"></div>
                                 <div style="text-align:center;"><label>Taxable</label><br><input type="checkbox" id="t-${i}" checked onchange="calculateAll()" style="width:20px; height:20px;"></div>
+                            </div>
+                            <div style="margin-top:5px;">
+                                <label>Category</label><input type="text" list="catHistoryList" id="c-${i}" placeholder="Materials">
                             </div>
                             <div class="live-total" id="total-${i}">$0.00</div>
                             <input type="hidden" id="n-${i}" value="${it.itemNo || ''}">
                         </div>`;
                     });
+                    updateCatUI();
                     handleStoreChange();
                     document.getElementById('review').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ DONE";
-                } catch (err) { alert("Error: " + err.message); }
+                    document.getElementById('status').innerText = "✅ SCAN READY";
+                } catch (err) { alert("Parse Error. Try again."); }
             };
             reader.readAsDataURL(file);
         };
 
         window.sync = async () => {
             const url = localStorage.getItem('u');
-            const store = document.getElementById('store').value.toUpperCase();
-            const isM = store.includes('MENARDS');
-            const m11 = isM && document.getElementById('m11').checked;
-            const gDisc = parseFloat(document.getElementById('globalDisc').value || 0) / 100;
-            const rNum = document.getElementById('rebateNum').value;
+            const store = document.getElementById('store').value;
+            const m11 = store.toUpperCase().includes('MENARDS') && document.getElementById('m11').checked;
+            const gD = parseFloat(document.getElementById('gDisc').value || 0) / 100;
+            
+            let catHistory = JSON.parse(localStorage.getItem('ledgerCats') || '[]');
 
             const payload = {
                 imageBlob: base64Img,
                 items: capturedItems.map((_, i) => {
-                    const q = parseFloat(document.getElementById(`q-${i}`).value) || 0;
-                    const p = parseFloat(document.getElementById(`p-${i}`).value) || 0;
-                    const itemM = parseFloat(document.getElementById(`r-${i}`).value) || 0;
-                    const sub = q * p;
+                    const q = parseFloat(document.getElementById(`q-${i}`).value);
+                    const p = parseFloat(document.getElementById(`p-${i}`).value);
+                    const itemM = parseFloat(document.getElementById(`r-${i}`).value);
                     const isT = document.getElementById(`t-${i}`).checked;
+                    const cat = document.getElementById(`c-${i}`).value || "Materials";
+                    const base = q * p;
                     
-                    let tax = 0, rebAmt = 0, final = 0;
-                    if (m11) {
-                        tax = isT ? (sub * TAX_RATE) : 0;
-                        rebAmt = (sub * 0.11) + itemM;
-                        final = sub + tax - rebAmt;
+                    // Update category history
+                    if(cat && !catHistory.includes(cat)) {
+                        catHistory.unshift(cat);
+                        catHistory = catHistory.slice(0, 5);
+                    }
+
+                    let taxAmt = 0, minReb = 0, final = 0;
+                    if(m11) {
+                        taxAmt = isT ? (base * TAX_RATE) : 0;
+                        minReb = (base * 0.11) + itemM;
+                        final = base + taxAmt - minReb;
                     } else {
-                        const dSub = sub - (sub * gDisc) - itemM;
-                        tax = isT ? (dSub * TAX_RATE) : 0;
-                        final = dSub + tax;
-                        rebAmt = itemM; // Just the manual portion
+                        const dSub = base - (base * gD) - itemM;
+                        taxAmt = isT ? (dSub * TAX_RATE) : 0;
+                        minReb = (base * gD) + itemM;
+                        final = dSub + taxAmt;
                     }
 
                     return {
-                        date: document.getElementById('date').value,
-                        store: store,
+                        date: new Date().toLocaleDateString(),
+                        origDate: document.getElementById('origDate').value,
                         itemNo: document.getElementById(`n-${i}`).value,
                         description: document.getElementById(`d-${i}`).value,
-                        qty: q, unitPrice: p, baseTotal: sub.toFixed(2),
-                        pricePlusTax: (sub + (isT ? sub*TAX_RATE : 0)).toFixed(2),
-                        rebateApplied: rebAmt.toFixed(2),
+                        qty: q, unitPrice: p, baseTotal: base.toFixed(2),
+                        taxedAmt: taxAmt.toFixed(2),
+                        minusRebate: minReb.toFixed(2),
                         finalCost: final.toFixed(2),
-                        payment: document.getElementById('pay').value + (rNum ? ' | Reb:' + rNum : ''),
-                        category: "Materials"
+                        payment: document.getElementById('pay').value,
+                        category: cat,
+                        rebateId: document.getElementById('rebId').value,
+                        rebateDesc: document.getElementById('rebDesc').value,
+                        rebateAmt: minReb.toFixed(2),
+                        store: store
                     };
                 })
             };
-
+            
+            localStorage.setItem('ledgerCats', JSON.stringify(catHistory));
             await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-            alert("Synced!"); location.reload();
+            alert("Synced successfully!"); location.reload();
         };
     </script>
 </body>
