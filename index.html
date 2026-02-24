@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Pro v5.7</title>
+    <title>Ledger Pro v5.8</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
         :root { --menards: #15803d; --lowes: #004990; --slate: #1e293b; --accent: #6366f1; }
@@ -22,14 +22,14 @@
 <body>
 
     <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0;">
-        <h2 style="margin:0;">Ledger Pro <small style="color:#94a3b8; font-weight:400;">v5.7</small></h2>
-        <button onclick="toggleConfig()" style="background:none; border:none; font-size:1.5rem;">⚙️</button>
+        <h2 style="margin:0;">Ledger Pro <small style="color:#94a3b8; font-weight:400;">v5.8</small></h2>
+        <button onclick="toggleConfig()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">⚙️</button>
     </div>
 
     <div id="config" class="card" style="display:none;">
         <label>API Key</label><input type="password" id="key">
         <label>Script URL</label><input type="text" id="url">
-        <button onclick="save()" style="width:100%; padding:10px; background:var(--slate); color:white; border:none; border-radius:8px; margin-top:10px;">Save Configuration</button>
+        <button onclick="save()" style="width:100%; padding:10px; background:var(--slate); color:white; border:none; border-radius:8px; margin-top:10px;">Save & Close</button>
     </div>
 
     <div class="card">
@@ -40,14 +40,18 @@
 
     <div id="review" style="display:none">
         <div class="card" id="headerCard">
-            <div id="mLogic" style="display:none; background:#dcfce7; padding:10px; border-radius:8px; margin-bottom:12px;">
-                <label style="color:var(--menards);"><input type="checkbox" id="m11" checked> Apply 11% Rebate</label>
+            <div id="mLogic" style="display:none; background:#dcfce7; padding:10px; border-radius:8px; margin-bottom:12px; border: 1px solid #bbf7d0;">
+                <label style="color:var(--menards); display:flex; align-items:center; gap:8px;">
+                    <input type="checkbox" id="m11" checked> Apply 11% Rebate
+                </label>
             </div>
             <div class="row-grid">
                 <div><label>Store</label><input type="text" id="store" oninput="checkStore()"></div>
                 <div><label>Date</label><input type="date" id="date"></div>
             </div>
-            <input type="text" id="pay" placeholder="Payment (e.g. Visa 1234)">
+            <div style="margin-top:10px;">
+                <label>Payment Note</label><input type="text" id="pay" placeholder="Visa 1234">
+            </div>
         </div>
 
         <div id="itemsContainer" class="card">
@@ -78,8 +82,9 @@
 
         window.checkStore = () => { 
             const v = document.getElementById('store').value.toUpperCase();
+            const header = document.getElementById('headerCard');
             document.getElementById('mLogic').style.display = v.includes('MENARDS') ? 'block' : 'none';
-            document.getElementById('headerCard').style.borderLeft = v.includes('MENARDS') ? "6px solid var(--menards)" : v.includes('LOWE') ? "6px solid var(--lowes)" : "6px solid #e2e8f0";
+            header.style.borderLeft = v.includes('MENARDS') ? "6px solid var(--menards)" : v.includes('LOWE') ? "6px solid var(--lowes)" : "6px solid #e2e8f0";
         };
 
         document.getElementById('key').value = localStorage.getItem('k') || "";
@@ -96,10 +101,21 @@
                 try {
                     const genAI = new GoogleGenerativeAI(localStorage.getItem('k'));
                     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-                    const prompt = `Return ONLY JSON: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":num,"unitPrice":num}]}. Change " to 'in'.`;
+                    
+                    const prompt = `Return ONLY JSON: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":num,"unitPrice":num}]}. Do NOT use trailing commas. Convert " to 'in'.`;
                     
                     const res = await model.generateContent([prompt, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
-                    const json = JSON.parse(res.response.text().match(/\{[\s\S]*\}/)[0]);
+                    let text = res.response.text();
+
+                    // --- Robust JSON Extraction ---
+                    const start = text.indexOf('{');
+                    const end = text.lastIndexOf('}') + 1;
+                    let jsonString = text.substring(start, end);
+                    // Remove trailing commas (illegal in standard JSON)
+                    jsonString = jsonString.replace(/,[ \t\r\n]*([\]}])/g, '$1');
+                    
+                    const json = JSON.parse(jsonString);
+                    // ------------------------------
                     
                     document.getElementById('store').value = json.store || "";
                     document.getElementById('date').value = json.date || "";
@@ -120,22 +136,31 @@
                                 <label>Category</label>
                                 <input type="text" list="catHistory" placeholder="Select or Type..." id="c-${i}">
                             </div>
+                            <input type="hidden" value="${it.itemNo || ''}" id="n-${i}">
                         </div>`;
                     });
 
                     checkStore();
                     document.getElementById('review').style.display = 'block';
                     document.getElementById('status').innerText = "✅ SCAN READY";
-                } catch (err) { alert(err.message); document.getElementById('status').innerText = "❌ ERROR"; }
+                } catch (err) { 
+                    console.error(err);
+                    alert("JSON Error: The receipt data was formatted incorrectly. Try again."); 
+                    document.getElementById('status').innerText = "❌ ERROR"; 
+                }
             };
             reader.readAsDataURL(file);
         };
 
         window.sync = async () => {
             const url = localStorage.getItem('u');
+            if(!url) return alert("Set Script URL in settings!");
+            
             const use11 = document.getElementById('store').value.toUpperCase().includes('MENARDS') && document.getElementById('m11').checked;
             let currentHistory = JSON.parse(localStorage.getItem('catList') || '[]');
             
+            document.getElementById('status').innerText = "🚀 SYNCING...";
+
             const payload = {
                 imageBlob: base64Img,
                 items: capturedItems.map((it, i) => {
@@ -143,15 +168,21 @@
                     const p = parseFloat(document.getElementById(`p-${i}`).value) || 0;
                     const cat = document.getElementById(`c-${i}`).value || "Materials";
                     
-                    if(cat && !currentHistory.includes(cat)) currentHistory.unshift(cat);
+                    // Update History logic
+                    if(cat && !currentHistory.includes(cat)) {
+                        currentHistory.unshift(cat);
+                        currentHistory = currentHistory.slice(0, 5);
+                    }
 
                     const sub = q * p;
-                    const tax = document.getElementById(`t-${i}`).checked ? (sub * TAX_RATE) : 0;
+                    const hasTax = document.getElementById(`t-${i}`).checked;
+                    const tax = hasTax ? (sub * TAX_RATE) : 0;
                     const reb = use11 ? (sub * 0.11) : 0;
+
                     return {
                         date: document.getElementById('date').value,
                         store: document.getElementById('store').value,
-                        itemNo: it.itemNo || "",
+                        itemNo: document.getElementById(`n-${i}`).value,
                         description: document.getElementById(`d-${i}`).value,
                         qty: q, unitPrice: p, baseTotal: sub.toFixed(2),
                         pricePlusTax: (sub + tax).toFixed(2),
@@ -163,10 +194,16 @@
                 })
             };
 
-            localStorage.setItem('catList', JSON.stringify(currentHistory.slice(0, 5)));
-            await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-            alert("Success! Spreadsheet Updated.");
-            location.reload();
+            localStorage.setItem('catList', JSON.stringify(currentHistory));
+            
+            try {
+                await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+                alert("Success! Spreadsheet Updated.");
+                location.reload();
+            } catch (e) {
+                alert("Sync Failed. Check Script URL.");
+                document.getElementById('status').innerText = "❌ SYNC FAILED";
+            }
         };
     </script>
 </body>
