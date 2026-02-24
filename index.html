@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Pro v5.6</title>
+    <title>Ledger Pro v5.7</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
         :root { --menards: #15803d; --lowes: #004990; --slate: #1e293b; --accent: #6366f1; }
@@ -16,19 +16,19 @@
         .item-row { border-bottom: 2px solid #f1f5f9; padding: 15px 0; }
         .row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         #status { text-align: center; margin-top: 10px; font-weight: bold; color: #64748b; font-size: 0.9rem; }
+        .tax-check { width: 22px; height: 22px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0;">
-        <h2 style="margin:0;">Ledger Pro <small style="color:#94a3b8; font-weight:400;">v5.6</small></h2>
+        <h2 style="margin:0;">Ledger Pro <small style="color:#94a3b8; font-weight:400;">v5.7</small></h2>
         <button onclick="toggleConfig()" style="background:none; border:none; font-size:1.5rem;">⚙️</button>
     </div>
 
     <div id="config" class="card" style="display:none;">
         <label>API Key</label><input type="password" id="key">
         <label>Script URL</label><input type="text" id="url">
-        <label>Drive Folder ID</label><input type="text" id="folderId">
         <button onclick="save()" style="width:100%; padding:10px; background:var(--slate); color:white; border:none; border-radius:8px; margin-top:10px;">Save Configuration</button>
     </div>
 
@@ -47,7 +47,7 @@
                 <div><label>Store</label><input type="text" id="store" oninput="checkStore()"></div>
                 <div><label>Date</label><input type="date" id="date"></div>
             </div>
-            <input type="text" id="pay" placeholder="Payment Method (e.g. Visa 1234)">
+            <input type="text" id="pay" placeholder="Payment (e.g. Visa 1234)">
         </div>
 
         <div id="itemsContainer" class="card">
@@ -68,15 +68,12 @@
         window.save = () => { 
             localStorage.setItem('k', document.getElementById('key').value); 
             localStorage.setItem('u', document.getElementById('url').value); 
-            localStorage.setItem('f', document.getElementById('folderId').value);
             toggleConfig(); 
         };
 
-        // Initialize History UI
         const updateHistoryUI = () => {
             const history = JSON.parse(localStorage.getItem('catList') || '[]');
-            const dl = document.getElementById('catHistory');
-            dl.innerHTML = history.map(c => `<option value="${c}">`).join('');
+            document.getElementById('catHistory').innerHTML = history.map(c => `<option value="${c}">`).join('');
         };
 
         window.checkStore = () => { 
@@ -87,7 +84,6 @@
 
         document.getElementById('key').value = localStorage.getItem('k') || "";
         document.getElementById('url').value = localStorage.getItem('u') || "";
-        document.getElementById('folderId').value = localStorage.getItem('f') || "";
         updateHistoryUI();
 
         document.getElementById('fileIn').onchange = async (e) => {
@@ -114,7 +110,7 @@
                         list.innerHTML += `<div class="item-row">
                             <div style="display:flex; gap:8px;">
                                 <div style="flex:3"><label>Item</label><input type="text" value="${it.description}" id="d-${i}"></div>
-                                <div style="flex:1; text-align:center;"><label>Tax</label><br><input type="checkbox" id="t-${i}" checked style="width:20px; height:20px;"></div>
+                                <div style="flex:1; text-align:center;"><label>Tax</label><br><input type="checkbox" id="t-${i}" class="tax-check" checked></div>
                             </div>
                             <div class="row-grid">
                                 <div><label>Qty</label><input type="number" step="any" value="${it.qty}" id="q-${i}"></div>
@@ -122,14 +118,14 @@
                             </div>
                             <div style="margin-top:8px;">
                                 <label>Category</label>
-                                <input type="text" list="catHistory" placeholder="Materials" id="c-${i}">
+                                <input type="text" list="catHistory" placeholder="Select or Type..." id="c-${i}">
                             </div>
                         </div>`;
                     });
 
                     checkStore();
                     document.getElementById('review').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ READY";
+                    document.getElementById('status').innerText = "✅ SCAN READY";
                 } catch (err) { alert(err.message); document.getElementById('status').innerText = "❌ ERROR"; }
             };
             reader.readAsDataURL(file);
@@ -138,20 +134,16 @@
         window.sync = async () => {
             const url = localStorage.getItem('u');
             const use11 = document.getElementById('store').value.toUpperCase().includes('MENARDS') && document.getElementById('m11').checked;
-            
-            // Collect new categories for history
             let currentHistory = JSON.parse(localStorage.getItem('catList') || '[]');
             
             const payload = {
                 imageBlob: base64Img,
-                folderId: localStorage.getItem('f'),
                 items: capturedItems.map((it, i) => {
                     const q = parseFloat(document.getElementById(`q-${i}`).value) || 0;
                     const p = parseFloat(document.getElementById(`p-${i}`).value) || 0;
                     const cat = document.getElementById(`c-${i}`).value || "Materials";
                     
-                    // Add to history if unique
-                    if(!currentHistory.includes(cat)) currentHistory.unshift(cat);
+                    if(cat && !currentHistory.includes(cat)) currentHistory.unshift(cat);
 
                     const sub = q * p;
                     const tax = document.getElementById(`t-${i}`).checked ? (sub * TAX_RATE) : 0;
@@ -159,7 +151,7 @@
                     return {
                         date: document.getElementById('date').value,
                         store: document.getElementById('store').value,
-                        itemNo: document.getElementById(`n-${i}`)?.value || it.itemNo,
+                        itemNo: it.itemNo || "",
                         description: document.getElementById(`d-${i}`).value,
                         qty: q, unitPrice: p, baseTotal: sub.toFixed(2),
                         pricePlusTax: (sub + tax).toFixed(2),
@@ -171,11 +163,9 @@
                 })
             };
 
-            // Save only last 5 unique categories
             localStorage.setItem('catList', JSON.stringify(currentHistory.slice(0, 5)));
-
             await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-            alert("Synced!");
+            alert("Success! Spreadsheet Updated.");
             location.reload();
         };
     </script>
