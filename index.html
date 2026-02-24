@@ -3,76 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Pro v5.1</title>
+    <title>Ledger Pro v5.2</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
         :root { --menards: #15803d; --lowes: #004990; --slate: #1e293b; --accent: #6366f1; }
         body { font-family: -apple-system, system-ui, sans-serif; background: #f1f5f9; padding: 15px; max-width: 500px; margin: auto; color: var(--slate); line-height: 1.4; }
         
-        /* UI Components */
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid #e2e8f0; }
-        .camera-btn { background: var(--accent); color: white; padding: 20px; text-align: center; border-radius: 12px; font-weight: bold; cursor: pointer; display: block; transition: opacity 0.2s; }
-        .camera-btn:active { opacity: 0.8; }
+        .camera-btn { background: var(--accent); color: white; padding: 20px; text-align: center; border-radius: 12px; font-weight: bold; cursor: pointer; display: block; }
         .sync-btn { background: #10b981; color: white; width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
         
-        /* Form Elements */
         input[type="text"], input[type="number"], input[type="date"], input[type="password"] { 
             width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 16px; 
         }
         label { font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
         
-        /* Item Row Styling */
         .item-row { border-bottom: 1px solid #f1f5f9; padding: 12px 0; }
         .item-row:last-child { border-bottom: none; }
         .row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
-        .tax-toggle { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         
         #config { display: none; background: #fffbeb; border: 1px solid #fef3c7; }
         #status { text-align: center; margin-top: 10px; font-weight: bold; color: #64748b; font-size: 0.9rem; }
+        
+        .tax-box { width: 22px; height: 22px; margin-top: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-        <h2 style="margin:0; font-size: 1.3rem; letter-spacing: -0.02em;">Ledger Pro <span style="font-weight:400; color:#94a3b8;">v5.1</span></h2>
+        <h2 style="margin:0; font-size: 1.3rem;">Ledger Pro <span style="font-weight:400; color:#94a3b8;">v5.2</span></h2>
         <button onclick="toggleConfig()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">⚙️</button>
     </div>
 
     <div id="config" class="card">
-        <label>Gemini API Key</label><input type="password" id="key" placeholder="Paste Key Here">
-        <label>Google Script URL</label><input type="text" id="url" placeholder="https://script.google.com/...">
+        <label>Gemini API Key</label><input type="password" id="key">
+        <label>Google Script URL</label><input type="text" id="url">
         <button onclick="save()" style="width:100%; padding:12px; margin-top:10px; background:var(--slate); color:white; border:none; border-radius:8px; font-weight:bold;">Save & Close</button>
     </div>
 
     <div class="card">
-        <label for="fileIn" class="camera-btn">📷 SCAN NEW RECEIPT</label>
+        <label for="fileIn" class="camera-btn">📷 SCAN RECEIPT</label>
         <input type="file" id="fileIn" accept="image/*" capture="environment" style="display:none">
-        <div id="status">System Ready</div>
+        <div id="status">Ready for Scan</div>
     </div>
 
     <div id="review" style="display:none">
         <div class="card" id="headerCard">
             <div id="mLogic" style="display:none; background:#dcfce7; padding:10px; border-radius:8px; margin-bottom:12px; border: 1px solid #bbf7d0;">
                 <label style="color:var(--menards); display:flex; align-items:center; gap:8px;">
-                    <input type="checkbox" id="m11" checked style="width:18px; height:18px;"> Apply 11% Rebate
+                    <input type="checkbox" id="m11" checked> Apply 11% Rebate
                 </label>
             </div>
             <div class="row-grid">
-                <div><label>Store Name</label><input type="text" id="store" oninput="checkStore()"></div>
-                <div><label>Purchase Date</label><input type="date" id="date"></div>
+                <div><label>Store</label><input type="text" id="store" oninput="checkStore()"></div>
+                <div><label>Date</label><input type="date" id="date"></div>
             </div>
             <div style="margin-top:10px;">
-                <label>Payment / Note</label><input type="text" id="pay" placeholder="e.g. Visa 1234 or Cash">
+                <label>Payment / Note</label><input type="text" id="pay" placeholder="Visa 1234">
             </div>
         </div>
 
         <div id="itemsContainer" class="card">
-            <label>Line Items</label>
+            <label>Verify Line Items</label>
             <div id="itemsList"></div>
         </div>
 
         <button onclick="sync()" class="sync-btn">🚀 SYNC TO SPREADSHEET</button>
-        <p style="text-align:center; font-size: 0.75rem; color: #94a3b8; margin-top:15px;">Refreshing the page will clear current scan.</p>
     </div>
 
     <script type="module">
@@ -80,100 +76,62 @@
         
         let capturedItems = []; 
         let base64Img = "";
-        const TAX_RATE = 0.06; // Your local 6% tax rate
+        const TAX_RATE = 0.06; // 6% tax rate
 
-        // UI Helpers
-        window.toggleConfig = () => { 
-            const c = document.getElementById('config'); 
-            c.style.display = c.style.display === 'block' ? 'none' : 'block'; 
-        };
-        
-        window.save = () => { 
-            localStorage.setItem('k', document.getElementById('key').value); 
-            localStorage.setItem('u', document.getElementById('url').value); 
-            toggleConfig(); 
-            alert("Settings Saved locally.");
-        };
+        window.toggleConfig = () => { document.getElementById('config').style.display = document.getElementById('config').style.display === 'block' ? 'none' : 'block'; };
+        window.save = () => { localStorage.setItem('k', document.getElementById('key').value); localStorage.setItem('u', document.getElementById('url').value); toggleConfig(); };
         
         window.checkStore = () => { 
             const val = document.getElementById('store').value.toUpperCase();
             const header = document.getElementById('headerCard');
             const mLogic = document.getElementById('mLogic');
-            
             mLogic.style.display = val.includes('MENARDS') ? 'block' : 'none';
-            if(val.includes('MENARDS')) header.style.borderLeft = "6px solid var(--menards)";
-            else if(val.includes('LOWE')) header.style.borderLeft = "6px solid var(--lowes)";
-            else header.style.borderLeft = "6px solid #e2e8f0";
+            header.style.borderLeft = val.includes('MENARDS') ? "6px solid var(--menards)" : val.includes('LOWE') ? "6px solid var(--lowes)" : "6px solid #e2e8f0";
         };
 
-        // Initialize Keys on Load
         document.getElementById('key').value = localStorage.getItem('k') || "";
         document.getElementById('url').value = localStorage.getItem('u') || "";
 
-        // The Scanning Core
         document.getElementById('fileIn').onchange = async (e) => {
-            const file = e.target.files[0]; 
-            if(!file) return;
-            
+            const file = e.target.files[0]; if(!file) return;
             const reader = new FileReader();
             reader.onloadend = async () => {
                 base64Img = reader.result.split(',')[1];
                 const key = localStorage.getItem('k');
-                if(!key) return alert("Please set your Gemini API Key in ⚙️ settings!");
+                if(!key) return alert("Set API Key first!");
 
-                document.getElementById('status').innerText = "🧠 AI ANALYZING...";
+                document.getElementById('status').innerText = "🧠 ANALYZING (GEMINI 3)...";
                 
                 try {
                     const genAI = new GoogleGenerativeAI(key);
-                    const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
+                    // Updated model ID for v1beta compatibility
+                    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
                     
-                    const prompt = `Return ONLY a JSON object: {
-                        "store":"str",
-                        "date":"YYYY-MM-DD",
-                        "items":[{
-                            "itemNo":"str", 
-                            "description":"str",
-                            "qty":num,
-                            "unitPrice":num
-                        }]
-                    }`;
+                    const prompt = `Return ONLY JSON: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":num,"unitPrice":num}]}`;
                     
                     const result = await model.generateContent([prompt, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
                     const response = await result.response;
-                    let text = response.text();
+                    let text = response.text().replace(/(\d)"/g, '$1in'); // Sanitize " inch marks
                     
-                    // 1. Sanitize Inch Marks (Replace 2" with 2in) to prevent JSON breakage
-                    text = text.replace(/(\d)"/g, '$1in');
-                    
-                    // 2. Extract valid JSON using Regex
                     const jsonMatch = text.match(/\{[\s\S]*\}/);
-                    if (!jsonMatch) throw new Error("AI response was not in a valid format.");
-                    
                     const data = JSON.parse(jsonMatch[0]);
 
-                    // Populate Header
                     document.getElementById('store').value = data.store || "";
                     document.getElementById('date').value = data.date || "";
                     capturedItems = data.items || [];
                     
-                    // Build Item List with Tax Toggles
-                    const list = document.getElementById('itemsList'); 
-                    list.innerHTML = "";
-                    
+                    const list = document.getElementById('itemsList'); list.innerHTML = "";
                     capturedItems.forEach((it, i) => {
                         list.innerHTML += `
                         <div class="item-row">
                             <div style="display:flex; gap:8px; align-items:flex-end;">
                                 <div style="flex:1"><label>SKU</label><input type="text" value="${it.itemNo||''}" id="n-${i}"></div>
-                                <div style="flex:3"><label>Description</label><input type="text" value="${it.description}" id="d-${i}"></div>
-                                <div class="tax-toggle">
-                                    <label>Tax</label>
-                                    <input type="checkbox" id="t-${i}" checked style="width:20px; height:20px; margin: 8px 0;">
-                                </div>
+                                <div style="flex:3"><label>Item</label><input type="text" value="${it.description}" id="d-${i}"></div>
+                                <div style="text-align:center;"><label>Tax</label><br><input type="checkbox" id="t-${i}" class="tax-box" checked></div>
                             </div>
                             <div class="row-grid">
                                 <div><label>Qty</label><input type="number" step="any" value="${it.qty}" id="q-${i}"></div>
-                                <div><label>Unit Price ($)</label><input type="number" step="0.01" value="${it.unitPrice}" id="p-${i}"></div>
+                                <div><label>Price</label><input type="number" step="0.01" value="${it.unitPrice}" id="p-${i}"></div>
                             </div>
                         </div>`;
                     });
@@ -182,22 +140,17 @@
                     document.getElementById('review').style.display = 'block';
                     document.getElementById('status').innerText = "✅ SCAN COMPLETE";
                 } catch (err) { 
-                    console.error("Critical Error:", err);
-                    alert("Scan Failed: " + err.message);
-                    document.getElementById('status').innerText = "❌ ERROR - TRY AGAIN"; 
+                    alert("Error: " + err.message);
+                    document.getElementById('status').innerText = "❌ ERROR"; 
                 }
             };
             reader.readAsDataURL(file);
         };
 
-        // Sync to Google Sheets
         window.sync = async () => {
             const url = localStorage.getItem('u');
-            if(!url) return alert("Missing Google Script URL in Settings!");
-            
-            document.getElementById('status').innerText = "☁️ SYNCING DATA...";
-            const isM = document.getElementById('store').value.toUpperCase().includes('MENARDS');
-            const use11 = isM && document.getElementById('m11').checked;
+            document.getElementById('status').innerText = "☁️ SYNCING...";
+            const use11 = document.getElementById('store').value.toUpperCase().includes('MENARDS') && document.getElementById('m11').checked;
 
             const payload = {
                 imageBlob: base64Img,
@@ -205,43 +158,32 @@
                     const q = parseFloat(document.getElementById(`q-${i}`).value) || 0;
                     const p = parseFloat(document.getElementById(`p-${i}`).value) || 0;
                     const isTaxed = document.getElementById(`t-${i}`).checked;
-                    
-                    const subtotal = q * p;
-                    const tax = isTaxed ? (subtotal * TAX_RATE) : 0;
-                    const rebate = use11 ? (subtotal * 0.11) : 0;
+                    const sub = q * p;
+                    const tax = isTaxed ? (sub * TAX_RATE) : 0;
+                    const reb = use11 ? (sub * 0.11) : 0;
 
                     return {
                         date: document.getElementById('date').value,
                         origDate: document.getElementById('date').value,
                         itemNo: document.getElementById(`n-${i}`).value,
                         description: document.getElementById(`d-${i}`).value,
-                        qty: q, 
-                        unitPrice: p, 
-                        baseTotal: subtotal.toFixed(2),
-                        pricePlusTax: (subtotal + tax).toFixed(2),
-                        priceMinusRebate: (subtotal - rebate).toFixed(2),
-                        finalCost: (subtotal + tax - rebate).toFixed(2),
+                        qty: q, unitPrice: p, baseTotal: sub.toFixed(2),
+                        pricePlusTax: (sub + tax).toFixed(2),
+                        priceMinusRebate: (sub - reb).toFixed(2),
+                        finalCost: (sub + tax - reb).toFixed(2),
                         payment: document.getElementById('pay').value || "Card",
                         category: "Materials",
-                        rebateApplied: rebate.toFixed(2),
+                        rebateApplied: reb.toFixed(2),
                         store: document.getElementById('store').value
                     };
                 })
             };
 
             try {
-                await fetch(url, { 
-                    method: 'POST', 
-                    mode: 'no-cors', 
-                    headers: {'Content-Type': 'text/plain'}, 
-                    body: JSON.stringify(payload) 
-                });
-                alert("Receipt Synced Successfully!");
-                location.reload(); // Refresh to clear state
-            } catch (e) { 
-                alert("Sync Error: " + e.message); 
-                document.getElementById('status').innerText = "❌ SYNC FAILED";
-            }
+                await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+                alert("Synced!");
+                location.reload();
+            } catch (e) { alert("Sync Error: " + e.message); }
         };
     </script>
 </body>
