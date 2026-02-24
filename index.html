@@ -3,35 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Pro v5.2</title>
+    <title>Ledger Pro v5.3</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
         :root { --menards: #15803d; --lowes: #004990; --slate: #1e293b; --accent: #6366f1; }
         body { font-family: -apple-system, system-ui, sans-serif; background: #f1f5f9; padding: 15px; max-width: 500px; margin: auto; color: var(--slate); line-height: 1.4; }
-        
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid #e2e8f0; }
         .camera-btn { background: var(--accent); color: white; padding: 20px; text-align: center; border-radius: 12px; font-weight: bold; cursor: pointer; display: block; }
         .sync-btn { background: #10b981; color: white; width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
-        
-        input[type="text"], input[type="number"], input[type="date"], input[type="password"] { 
-            width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 16px; 
-        }
-        label { font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
-        
+        input[type="text"], input[type="number"], input[type="date"], input[type="password"] { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        label { font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
         .item-row { border-bottom: 1px solid #f1f5f9; padding: 12px 0; }
-        .item-row:last-child { border-bottom: none; }
         .row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
-        
-        #config { display: none; background: #fffbeb; border: 1px solid #fef3c7; }
+        #config { display: none; background: #fffbeb; }
         #status { text-align: center; margin-top: 10px; font-weight: bold; color: #64748b; font-size: 0.9rem; }
-        
-        .tax-box { width: 22px; height: 22px; margin-top: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-        <h2 style="margin:0; font-size: 1.3rem;">Ledger Pro <span style="font-weight:400; color:#94a3b8;">v5.2</span></h2>
+        <h2 style="margin:0; font-size: 1.3rem;">Ledger Pro <span style="font-weight:400; color:#94a3b8;">v5.3</span></h2>
         <button onclick="toggleConfig()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">⚙️</button>
     </div>
 
@@ -44,7 +35,7 @@
     <div class="card">
         <label for="fileIn" class="camera-btn">📷 SCAN RECEIPT</label>
         <input type="file" id="fileIn" accept="image/*" capture="environment" style="display:none">
-        <div id="status">Ready for Scan</div>
+        <div id="status">Ready</div>
     </div>
 
     <div id="review" style="display:none">
@@ -62,31 +53,21 @@
                 <label>Payment / Note</label><input type="text" id="pay" placeholder="Visa 1234">
             </div>
         </div>
-
-        <div id="itemsContainer" class="card">
-            <label>Verify Line Items</label>
-            <div id="itemsList"></div>
-        </div>
-
+        <div id="itemsContainer" class="card"><div id="itemsList"></div></div>
         <button onclick="sync()" class="sync-btn">🚀 SYNC TO SPREADSHEET</button>
     </div>
 
     <script type="module">
         import { GoogleGenerativeAI } from "@google/generative-ai";
-        
-        let capturedItems = []; 
-        let base64Img = "";
-        const TAX_RATE = 0.06; // 6% tax rate
+        let capturedItems = []; let base64Img = "";
+        const TAX_RATE = 0.06;
 
         window.toggleConfig = () => { document.getElementById('config').style.display = document.getElementById('config').style.display === 'block' ? 'none' : 'block'; };
         window.save = () => { localStorage.setItem('k', document.getElementById('key').value); localStorage.setItem('u', document.getElementById('url').value); toggleConfig(); };
-        
         window.checkStore = () => { 
-            const val = document.getElementById('store').value.toUpperCase();
-            const header = document.getElementById('headerCard');
-            const mLogic = document.getElementById('mLogic');
-            mLogic.style.display = val.includes('MENARDS') ? 'block' : 'none';
-            header.style.borderLeft = val.includes('MENARDS') ? "6px solid var(--menards)" : val.includes('LOWE') ? "6px solid var(--lowes)" : "6px solid #e2e8f0";
+            const v = document.getElementById('store').value.toUpperCase();
+            document.getElementById('mLogic').style.display = v.includes('MENARDS') ? 'block' : 'none';
+            document.getElementById('headerCard').style.borderLeft = v.includes('MENARDS') ? "6px solid var(--menards)" : v.includes('LOWE') ? "6px solid var(--lowes)" : "6px solid #e2e8f0";
         };
 
         document.getElementById('key').value = localStorage.getItem('k') || "";
@@ -98,22 +79,28 @@
             reader.onloadend = async () => {
                 base64Img = reader.result.split(',')[1];
                 const key = localStorage.getItem('k');
-                if(!key) return alert("Set API Key first!");
+                if(!key) return alert("API Key Required!");
 
-                document.getElementById('status').innerText = "🧠 ANALYZING (GEMINI 3)...";
-                
-                try {
+                const scan = async (mod) => {
+                    document.getElementById('status').innerText = `🧠 ANALYZING (${mod})...`;
                     const genAI = new GoogleGenerativeAI(key);
-                    // Updated model ID for v1beta compatibility
-                    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
-                    
-                    const prompt = `Return ONLY JSON: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":num,"unitPrice":num}]}`;
-                    
-                    const result = await model.generateContent([prompt, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
-                    const response = await result.response;
-                    let text = response.text().replace(/(\d)"/g, '$1in'); // Sanitize " inch marks
-                    
+                    const model = genAI.getGenerativeModel({ model: mod });
+                    const prompt = `Return ONLY JSON: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":num,"unitPrice":num}]}. Replace inch marks (") in descriptions with "in".`;
+                    const res = await model.generateContent([prompt, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
+                    return res.response.text();
+                };
+
+                try {
+                    let text;
+                    try {
+                        text = await scan("gemini-1.5-flash"); // Using 1.5 Flash for maximum stability today
+                    } catch (err) {
+                        console.warn("Retrying with fallback...");
+                        text = await scan("gemini-2.0-flash");
+                    }
+
                     const jsonMatch = text.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) throw new Error("Invalid response format");
                     const data = JSON.parse(jsonMatch[0]);
 
                     document.getElementById('store').value = data.store || "";
@@ -122,26 +109,25 @@
                     
                     const list = document.getElementById('itemsList'); list.innerHTML = "";
                     capturedItems.forEach((it, i) => {
-                        list.innerHTML += `
-                        <div class="item-row">
+                        list.innerHTML += `<div class="item-row">
                             <div style="display:flex; gap:8px; align-items:flex-end;">
                                 <div style="flex:1"><label>SKU</label><input type="text" value="${it.itemNo||''}" id="n-${i}"></div>
                                 <div style="flex:3"><label>Item</label><input type="text" value="${it.description}" id="d-${i}"></div>
-                                <div style="text-align:center;"><label>Tax</label><br><input type="checkbox" id="t-${i}" class="tax-box" checked></div>
+                                <div style="text-align:center;"><label>Tax</label><br><input type="checkbox" id="t-${i}" checked style="width:20px; height:20px;"></div>
                             </div>
                             <div class="row-grid">
-                                <div><label>Qty</label><input type="number" step="any" value="${it.qty}" id="q-${i}"></div>
-                                <div><label>Price</label><input type="number" step="0.01" value="${it.unitPrice}" id="p-${i}"></div>
+                                <input type="number" step="any" value="${it.qty}" id="q-${i}">
+                                <input type="number" step="0.01" value="${it.unitPrice}" id="p-${i}">
                             </div>
                         </div>`;
                     });
 
                     checkStore();
                     document.getElementById('review').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ SCAN COMPLETE";
+                    document.getElementById('status').innerText = "✅ DONE";
                 } catch (err) { 
                     alert("Error: " + err.message);
-                    document.getElementById('status').innerText = "❌ ERROR"; 
+                    document.getElementById('status').innerText = "❌ FAILED"; 
                 }
             };
             reader.readAsDataURL(file);
@@ -149,28 +135,23 @@
 
         window.sync = async () => {
             const url = localStorage.getItem('u');
-            document.getElementById('status').innerText = "☁️ SYNCING...";
             const use11 = document.getElementById('store').value.toUpperCase().includes('MENARDS') && document.getElementById('m11').checked;
-
             const payload = {
                 imageBlob: base64Img,
                 items: capturedItems.map((it, i) => {
                     const q = parseFloat(document.getElementById(`q-${i}`).value) || 0;
                     const p = parseFloat(document.getElementById(`p-${i}`).value) || 0;
-                    const isTaxed = document.getElementById(`t-${i}`).checked;
-                    const sub = q * p;
-                    const tax = isTaxed ? (sub * TAX_RATE) : 0;
-                    const reb = use11 ? (sub * 0.11) : 0;
-
+                    const tax = document.getElementById(`t-${i}`).checked ? (q*p*TAX_RATE) : 0;
+                    const reb = use11 ? (q*p*0.11) : 0;
                     return {
                         date: document.getElementById('date').value,
                         origDate: document.getElementById('date').value,
                         itemNo: document.getElementById(`n-${i}`).value,
                         description: document.getElementById(`d-${i}`).value,
-                        qty: q, unitPrice: p, baseTotal: sub.toFixed(2),
-                        pricePlusTax: (sub + tax).toFixed(2),
-                        priceMinusRebate: (sub - reb).toFixed(2),
-                        finalCost: (sub + tax - reb).toFixed(2),
+                        qty: q, unitPrice: p, baseTotal: (q*p).toFixed(2),
+                        pricePlusTax: (q*p + tax).toFixed(2),
+                        priceMinusRebate: (q*p - reb).toFixed(2),
+                        finalCost: (q*p + tax - reb).toFixed(2),
                         payment: document.getElementById('pay').value || "Card",
                         category: "Materials",
                         rebateApplied: reb.toFixed(2),
@@ -178,12 +159,11 @@
                     };
                 })
             };
-
             try {
                 await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
                 alert("Synced!");
                 location.reload();
-            } catch (e) { alert("Sync Error: " + e.message); }
+            } catch (e) { alert("Sync Error"); }
         };
     </script>
 </body>
