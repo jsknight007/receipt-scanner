@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Pro v5.8</title>
+    <title>Ledger Pro v5.9</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
         :root { --menards: #15803d; --lowes: #004990; --slate: #1e293b; --accent: #6366f1; }
@@ -16,13 +16,12 @@
         .item-row { border-bottom: 2px solid #f1f5f9; padding: 15px 0; }
         .row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         #status { text-align: center; margin-top: 10px; font-weight: bold; color: #64748b; font-size: 0.9rem; }
-        .tax-check { width: 22px; height: 22px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0;">
-        <h2 style="margin:0;">Ledger Pro <small style="color:#94a3b8; font-weight:400;">v5.8</small></h2>
+        <h2 style="margin:0;">Ledger Pro <small style="color:#94a3b8; font-weight:400;">v5.9</small></h2>
         <button onclick="toggleConfig()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">⚙️</button>
     </div>
 
@@ -53,11 +52,7 @@
                 <label>Payment Note</label><input type="text" id="pay" placeholder="Visa 1234">
             </div>
         </div>
-
-        <div id="itemsContainer" class="card">
-            <div id="itemsList"></div>
-        </div>
-
+        <div id="itemsContainer" class="card"><div id="itemsList"></div></div>
         <button onclick="sync()" class="sync-btn">🚀 SYNC TO SPREADSHEET</button>
     </div>
 
@@ -69,11 +64,7 @@
         const TAX_RATE = 0.06;
 
         window.toggleConfig = () => { const c = document.getElementById('config'); c.style.display = c.style.display==='none'?'block':'none'; };
-        window.save = () => { 
-            localStorage.setItem('k', document.getElementById('key').value); 
-            localStorage.setItem('u', document.getElementById('url').value); 
-            toggleConfig(); 
-        };
+        window.save = () => { localStorage.setItem('k', document.getElementById('key').value); localStorage.setItem('u', document.getElementById('url').value); toggleConfig(); };
 
         const updateHistoryUI = () => {
             const history = JSON.parse(localStorage.getItem('catList') || '[]');
@@ -82,9 +73,8 @@
 
         window.checkStore = () => { 
             const v = document.getElementById('store').value.toUpperCase();
-            const header = document.getElementById('headerCard');
             document.getElementById('mLogic').style.display = v.includes('MENARDS') ? 'block' : 'none';
-            header.style.borderLeft = v.includes('MENARDS') ? "6px solid var(--menards)" : v.includes('LOWE') ? "6px solid var(--lowes)" : "6px solid #e2e8f0";
+            document.getElementById('headerCard').style.borderLeft = v.includes('MENARDS') ? "6px solid var(--menards)" : v.includes('LOWE') ? "6px solid var(--lowes)" : "6px solid #e2e8f0";
         };
 
         document.getElementById('key').value = localStorage.getItem('k') || "";
@@ -102,39 +92,45 @@
                     const genAI = new GoogleGenerativeAI(localStorage.getItem('k'));
                     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
                     
-                    const prompt = `Return ONLY JSON: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":num,"unitPrice":num}]}. Do NOT use trailing commas. Convert " to 'in'.`;
+                    const prompt = `Return ONLY JSON. No markdown backticks. No chatter. 
+                    Format: {"store":"string","date":"YYYY-MM-DD","items":[{"itemNo":"string","description":"string","qty":1,"unitPrice":1.00}]}
+                    Convert all " characters in names to 'in'.`;
                     
                     const res = await model.generateContent([prompt, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
-                    let text = res.response.text();
+                    let rawText = res.response.text();
 
-                    // --- Robust JSON Extraction ---
-                    const start = text.indexOf('{');
-                    const end = text.lastIndexOf('}') + 1;
-                    let jsonString = text.substring(start, end);
-                    // Remove trailing commas (illegal in standard JSON)
-                    jsonString = jsonString.replace(/,[ \t\r\n]*([\]}])/g, '$1');
+                    // --- NEW FAIL-SAFE PARSER ---
+                    // 1. Strip Markdown code blocks if present
+                    let cleanJson = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
                     
-                    const json = JSON.parse(jsonString);
-                    // ------------------------------
+                    // 2. Locate the main object
+                    const start = cleanJson.indexOf('{');
+                    const end = cleanJson.lastIndexOf('}') + 1;
+                    cleanJson = cleanJson.substring(start, end);
+
+                    // 3. Strip trailing commas (very common AI error)
+                    cleanJson = cleanJson.replace(/,[ \t\r\n]*([\]}])/g, '$1');
+
+                    const data = JSON.parse(cleanJson);
+                    // ----------------------------
                     
-                    document.getElementById('store').value = json.store || "";
-                    document.getElementById('date').value = json.date || "";
-                    capturedItems = json.items || [];
+                    document.getElementById('store').value = data.store || "";
+                    document.getElementById('date').value = data.date || "";
+                    capturedItems = data.items || [];
                     
                     const list = document.getElementById('itemsList'); list.innerHTML = "";
                     capturedItems.forEach((it, i) => {
                         list.innerHTML += `<div class="item-row">
                             <div style="display:flex; gap:8px;">
                                 <div style="flex:3"><label>Item</label><input type="text" value="${it.description}" id="d-${i}"></div>
-                                <div style="flex:1; text-align:center;"><label>Tax</label><br><input type="checkbox" id="t-${i}" class="tax-check" checked></div>
+                                <div style="flex:1; text-align:center;"><label>Tax</label><br><input type="checkbox" id="t-${i}" checked style="width:20px; height:20px;"></div>
                             </div>
                             <div class="row-grid">
                                 <div><label>Qty</label><input type="number" step="any" value="${it.qty}" id="q-${i}"></div>
                                 <div><label>Price</label><input type="number" step="0.01" value="${it.unitPrice}" id="p-${i}"></div>
                             </div>
                             <div style="margin-top:8px;">
-                                <label>Category</label>
-                                <input type="text" list="catHistory" placeholder="Select or Type..." id="c-${i}">
+                                <label>Category</label><input type="text" list="catHistory" placeholder="Select..." id="c-${i}">
                             </div>
                             <input type="hidden" value="${it.itemNo || ''}" id="n-${i}">
                         </div>`;
@@ -144,9 +140,9 @@
                     document.getElementById('review').style.display = 'block';
                     document.getElementById('status').innerText = "✅ SCAN READY";
                 } catch (err) { 
-                    console.error(err);
-                    alert("JSON Error: The receipt data was formatted incorrectly. Try again."); 
-                    document.getElementById('status').innerText = "❌ ERROR"; 
+                    console.error("Raw Output from AI:", err);
+                    alert("JSON Parse Failed. The AI might have sent an invalid character. Error: " + err.message);
+                    document.getElementById('status').innerText = "❌ PARSE ERROR"; 
                 }
             };
             reader.readAsDataURL(file);
@@ -154,11 +150,8 @@
 
         window.sync = async () => {
             const url = localStorage.getItem('u');
-            if(!url) return alert("Set Script URL in settings!");
-            
             const use11 = document.getElementById('store').value.toUpperCase().includes('MENARDS') && document.getElementById('m11').checked;
             let currentHistory = JSON.parse(localStorage.getItem('catList') || '[]');
-            
             document.getElementById('status').innerText = "🚀 SYNCING...";
 
             const payload = {
@@ -167,16 +160,10 @@
                     const q = parseFloat(document.getElementById(`q-${i}`).value) || 0;
                     const p = parseFloat(document.getElementById(`p-${i}`).value) || 0;
                     const cat = document.getElementById(`c-${i}`).value || "Materials";
-                    
-                    // Update History logic
-                    if(cat && !currentHistory.includes(cat)) {
-                        currentHistory.unshift(cat);
-                        currentHistory = currentHistory.slice(0, 5);
-                    }
+                    if(cat && !currentHistory.includes(cat)) { currentHistory.unshift(cat); currentHistory = currentHistory.slice(0, 5); }
 
                     const sub = q * p;
-                    const hasTax = document.getElementById(`t-${i}`).checked;
-                    const tax = hasTax ? (sub * TAX_RATE) : 0;
+                    const tax = document.getElementById(`t-${i}`).checked ? (sub * TAX_RATE) : 0;
                     const reb = use11 ? (sub * 0.11) : 0;
 
                     return {
@@ -195,15 +182,9 @@
             };
 
             localStorage.setItem('catList', JSON.stringify(currentHistory));
-            
-            try {
-                await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-                alert("Success! Spreadsheet Updated.");
-                location.reload();
-            } catch (e) {
-                alert("Sync Failed. Check Script URL.");
-                document.getElementById('status').innerText = "❌ SYNC FAILED";
-            }
+            await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+            alert("Success!");
+            location.reload();
         };
     </script>
 </body>
