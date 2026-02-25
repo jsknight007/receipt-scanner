@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Pro v6.3</title>
+    <title>Ledger Pro v6.5</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
         :root { --menards: #15803d; --lowes: #004990; --slate: #1e293b; --accent: #6366f1; }
@@ -11,7 +11,7 @@
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 12px; border: 1px solid #e2e8f0; }
         .camera-btn { background: var(--accent); color: white; padding: 18px; text-align: center; border-radius: 12px; font-weight: bold; cursor: pointer; display: block; }
         .sync-btn { background: #10b981; color: white; width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
-        input, select { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
         .item-row { border-bottom: 2px solid #f1f5f9; padding: 12px 0; }
         .row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -22,7 +22,7 @@
 <body>
 
     <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0;">
-        <h2 style="margin:0; font-size:1.2rem;">Ledger Pro <small>v6.3</small></h2>
+        <h2 style="margin:0; font-size:1.2rem;">Ledger Pro <small>v6.5</small></h2>
         <button onclick="toggleConfig()" style="background:none; border:none; font-size:1.5rem;">⚙️</button>
     </div>
 
@@ -45,17 +45,17 @@
                 <div><label>Receipt Date</label><input type="date" id="origDate"></div>
             </div>
             <div class="row-grid" style="margin-top:10px;">
-                <div><label>Rebate ID</label><input type="text" id="rebId" placeholder="2405"></div>
-                <div><label>Rebate Desc</label><input type="text" id="rebDesc" placeholder="11% Sale"></div>
+                <div><label>Rebate ID</label><input type="text" id="rebId" placeholder="e.g. 2405"></div>
+                <div><label>Rebate Desc</label><input type="text" id="rebDesc" placeholder="e.g. 15% Bag Sale"></div>
             </div>
             <div id="mLogicUI" style="display:none; margin-top:10px; background:#f0fdf4; padding:8px; border-radius:8px;">
                 <label style="display:flex; align-items:center; gap:8px; color:var(--menards);">
-                    <input type="checkbox" id="m11" checked onchange="calculateAll()"> Apply Menards 11% (Post-Tax)
+                    <input type="checkbox" id="m11" checked onchange="handleStoreChange()"> Apply Menards 11% (Post-Tax)
                 </label>
             </div>
             <div id="discUI" style="margin-top:10px;">
                 <div class="row-grid">
-                    <div><label>Global Discount %</label><input type="number" id="gDisc" value="0" oninput="calculateAll()"></div>
+                    <div><label>Global Disc %</label><input type="number" id="gDisc" value="0" oninput="calculateAll()"></div>
                     <div><label>Payment</label><input type="text" id="pay" placeholder="Lowes Card"></div>
                 </div>
             </div>
@@ -81,14 +81,17 @@
         window.save = () => { localStorage.setItem('k', document.getElementById('key').value); localStorage.setItem('u', document.getElementById('url').value); toggleConfig(); };
         
         const updateCatUI = () => {
-            const history = JSON.parse(localStorage.getItem('ledgerCats') || '["Materials","Tools","Lumber","Electrical","Plumbing"]');
+            const history = JSON.parse(localStorage.getItem('ledgerCats') || '["Materials","Tools","Lumber"]');
             document.getElementById('catHistoryList').innerHTML = history.map(c => `<option value="${c}">`).join('');
         };
 
         window.handleStoreChange = () => {
             const v = document.getElementById('store').value.toUpperCase();
-            document.getElementById('mLogicUI').style.display = v.includes('MENARDS') ? 'block' : 'none';
-            document.getElementById('gDisc').value = v.includes('LOWE') ? 5 : 0;
+            const isM = v.includes('MENARDS');
+            document.getElementById('mLogicUI').style.display = isM ? 'block' : 'none';
+            const m11Active = isM && document.getElementById('m11').checked;
+            if(!m11Active && isM) { if(document.getElementById('gDisc').value == 0) document.getElementById('gDisc').value = 15; }
+            if(v.includes('LOWE')) document.getElementById('gDisc').value = 5;
             calculateAll();
         };
 
@@ -104,20 +107,20 @@
                 const itemManual = parseFloat(document.getElementById(`r-${i}`).value) || 0;
                 const isT = document.getElementById(`t-${i}`).checked;
 
-                let base = q * p;
-                let tax = 0, minusRebate = 0, final = 0;
+                const base = q * p;
+                let tax = 0, minusRebate = 0, final = 0, rebAmt = 0;
 
                 if (m11) {
-                    tax = isT ? (base * TAX_RATE) : 0;
-                    minusRebate = (base * 0.11) + itemManual;
-                    final = base + tax - minusRebate;
+                    tax = isT ? Math.round(base * TAX_RATE * 100) / 100 : 0;
+                    rebAmt = Math.round(((base * 0.11) + itemManual) * 100) / 100;
+                    minusRebate = Math.round((base - rebAmt) * 100) / 100;
+                    final = Math.round((base + tax - rebAmt) * 100) / 100;
                 } else {
-                    let discountedSub = base - (base * gD) - itemManual;
-                    tax = isT ? (discountedSub * TAX_RATE) : 0;
-                    minusRebate = (base * gD) + itemManual;
-                    final = discountedSub + tax;
+                    rebAmt = Math.round(((base * gD) + itemManual) * 100) / 100;
+                    minusRebate = Math.round((base - rebAmt) * 100) / 100;
+                    tax = isT ? Math.round(minusRebate * TAX_RATE * 100) / 100 : 0;
+                    final = Math.round((minusRebate + tax) * 100) / 100;
                 }
-
                 document.getElementById(`total-${i}`).innerText = `$${final.toFixed(2)}`;
                 runningTotal += final;
             });
@@ -133,18 +136,19 @@
                 try {
                     const genAI = new GoogleGenerativeAI(localStorage.getItem('k'));
                     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-                    const res = await model.generateContent([`Return JSON only: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":1,"unitPrice":1.00}]}`, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
+                    const res = await model.generateContent([`JSON only: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":1,"unitPrice":1.00}]}`, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
                     const text = res.response.text();
                     const data = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1));
-                    
                     document.getElementById('store').value = data.store || "";
                     document.getElementById('origDate').value = data.date || "";
                     capturedItems = data.items;
-                    
                     const list = document.getElementById('itemsList'); list.innerHTML = "";
                     capturedItems.forEach((it, i) => {
                         list.innerHTML += `<div class="item-row">
-                            <label>Description</label><input type="text" value="${it.description}" id="d-${i}">
+                            <div class="row-grid">
+                                <div><label>Item No</label><input type="text" value="${it.itemNo || ''}" id="n-${i}"></div>
+                                <div><label>Description</label><input type="text" value="${it.description}" id="d-${i}"></div>
+                            </div>
                             <div class="row-grid">
                                 <div><label>Qty</label><input type="number" step="any" value="${it.qty}" id="q-${i}" oninput="calculateAll()"></div>
                                 <div><label>Price</label><input type="number" step="0.01" value="${it.unitPrice}" id="p-${i}" oninput="calculateAll()"></div>
@@ -157,14 +161,12 @@
                                 <label>Category</label><input type="text" list="catHistoryList" id="c-${i}" placeholder="Materials">
                             </div>
                             <div class="live-total" id="total-${i}">$0.00</div>
-                            <input type="hidden" id="n-${i}" value="${it.itemNo || ''}">
                         </div>`;
                     });
-                    updateCatUI();
-                    handleStoreChange();
+                    updateCatUI(); handleStoreChange();
                     document.getElementById('review').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ SCAN READY";
-                } catch (err) { alert("Parse Error. Try again."); }
+                    document.getElementById('status').innerText = "✅ DONE";
+                } catch (err) { alert("Parse Error"); }
             };
             reader.readAsDataURL(file);
         };
@@ -174,8 +176,7 @@
             const store = document.getElementById('store').value;
             const m11 = store.toUpperCase().includes('MENARDS') && document.getElementById('m11').checked;
             const gD = parseFloat(document.getElementById('gDisc').value || 0) / 100;
-            
-            let catHistory = JSON.parse(localStorage.getItem('ledgerCats') || '[]');
+            let cats = JSON.parse(localStorage.getItem('ledgerCats') || '[]');
 
             const payload = {
                 imageBlob: base64Img,
@@ -186,23 +187,19 @@
                     const isT = document.getElementById(`t-${i}`).checked;
                     const cat = document.getElementById(`c-${i}`).value || "Materials";
                     const base = q * p;
-                    
-                    // Update category history
-                    if(cat && !catHistory.includes(cat)) {
-                        catHistory.unshift(cat);
-                        catHistory = catHistory.slice(0, 5);
-                    }
+                    if(cat && !cats.includes(cat)) { cats.unshift(cat); cats = cats.slice(0, 5); }
 
-                    let taxAmt = 0, minReb = 0, final = 0;
+                    let taxAmt = 0, minReb = 0, final = 0, rebAmt = 0;
                     if(m11) {
-                        taxAmt = isT ? (base * TAX_RATE) : 0;
-                        minReb = (base * 0.11) + itemM;
-                        final = base + taxAmt - minReb;
+                        taxAmt = isT ? Math.round(base * TAX_RATE * 100) / 100 : 0;
+                        rebAmt = Math.round(((base * 0.11) + itemM) * 100) / 100;
+                        minReb = Math.round((base - rebAmt) * 100) / 100;
+                        final = Math.round((base + taxAmt - rebAmt) * 100) / 100;
                     } else {
-                        const dSub = base - (base * gD) - itemM;
-                        taxAmt = isT ? (dSub * TAX_RATE) : 0;
-                        minReb = (base * gD) + itemM;
-                        final = dSub + taxAmt;
+                        rebAmt = Math.round(((base * gD) + itemM) * 100) / 100;
+                        minReb = Math.round((base - rebAmt) * 100) / 100;
+                        taxAmt = isT ? Math.round(minReb * TAX_RATE * 100) / 100 : 0;
+                        final = Math.round((minReb + taxAmt) * 100) / 100;
                     }
 
                     return {
@@ -218,15 +215,14 @@
                         category: cat,
                         rebateId: document.getElementById('rebId').value,
                         rebateDesc: document.getElementById('rebDesc').value,
-                        rebateAmt: minReb.toFixed(2),
+                        rebateAmt: rebAmt.toFixed(2),
                         store: store
                     };
                 })
             };
-            
-            localStorage.setItem('ledgerCats', JSON.stringify(catHistory));
+            localStorage.setItem('ledgerCats', JSON.stringify(cats));
             await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-            alert("Synced successfully!"); location.reload();
+            alert("Synced!"); location.reload();
         };
     </script>
 </body>
