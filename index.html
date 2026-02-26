@@ -159,7 +159,7 @@ document.getElementById('fileIn').onchange = async (e) => {
             const genAI = new GoogleGenerativeAI(apiKey);
             const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
             
-            console.log("Sending request to Gemini 2.0...");
+            console.log("Sending request to Gemini 2.5...");
             
             const res = await model.generateContent([
                 `Return JSON only: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":1,"unitPrice":1.00}]}`, 
