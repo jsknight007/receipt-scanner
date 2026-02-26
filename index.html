@@ -85,15 +85,33 @@
             document.getElementById('catHistoryList').innerHTML = history.map(c => `<option value="${c}">`).join('');
         };
 
-        window.handleStoreChange = () => {
-            const v = document.getElementById('store').value.toUpperCase();
-            const isM = v.includes('MENARDS');
-            document.getElementById('mLogicUI').style.display = isM ? 'block' : 'none';
-            const m11Active = isM && document.getElementById('m11').checked;
-            if(!m11Active && isM) { if(document.getElementById('gDisc').value == 0) document.getElementById('gDisc').value = 15; }
-            if(v.includes('LOWE')) document.getElementById('gDisc').value = 5;
-            calculateAll();
-        };
+window.handleStoreChange = () => {
+    let raw = document.getElementById('store').value.toUpperCase();
+    // Clean string: remove anything that isn't a letter
+    let clean = raw.replace(/[^A-Z]/g, ""); 
+    
+    const isLowe = clean.includes("LOWE");
+    const isMenard = clean.includes("MENARD");
+
+    // Force standard display names
+    if (isLowe) document.getElementById('store').value = "Lowes";
+    if (isMenard) document.getElementById('store').value = "Menards";
+
+    document.getElementById('mLogicUI').style.display = isMenard ? 'block' : 'none';
+    
+    const m11Active = isMenard && document.getElementById('m11').checked;
+    
+    // Auto-fill logic
+    if (isLowe) {
+        document.getElementById('gDisc').value = 5;
+    } else if (isMenard && !m11Active) {
+        if(document.getElementById('gDisc').value == 0) document.getElementById('gDisc').value = 15;
+    } else {
+        document.getElementById('gDisc').value = 0;
+    }
+    
+    calculateAll();
+};
 
         window.calculateAll = () => {
             let runningTotal = 0;
