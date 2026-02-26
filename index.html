@@ -157,7 +157,7 @@ document.getElementById('fileIn').onchange = async (e) => {
             if (!apiKey) throw new Error("API Key is missing from settings!");
             
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
             
             console.log("Sending request to Gemini 2.0...");
             
