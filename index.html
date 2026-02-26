@@ -1,179 +1,218 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ledger Pro v8.0</title>
-<style>
-/* same styling as v7 for brevity */
-</style>
+  <meta charset="UTF-8" />
+  <title>Ledger Pro 4.5</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#6366f1" />
+
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      background: #f8fafc;
+      color: #111827;
+    }
+
+    header {
+      background: #6366f1;
+      color: white;
+      padding: 16px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    main {
+      padding: 16px;
+      max-width: 600px;
+      margin: auto;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      box-sizing: border-box;
+    }
+
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 12px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .install-btn {
+      display: none;
+      margin-top: 10px;
+      background: #10b981;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 12px;
+      margin-top: 20px;
+      color: #6b7280;
+    }
+  </style>
 </head>
 <body>
 
-<h2>Ledger Pro v8.0</h2>
+<header>Ledger Pro 4.5</header>
 
-<input type="text" id="url" placeholder="Apps Script URL">
-<input type="file" id="fileIn" accept="image/*">
-<div id="status">Ready</div>
+<main>
+  <label>Date</label>
+  <input type="date" id="date" />
 
-<div id="items"></div>
-<button onclick="sync()">Sync</button>
+  <label>Store</label>
+  <input type="text" id="store" placeholder="Lowes, Menards, etc." />
+
+  <label>Item #</label>
+  <input type="text" id="itemNo" />
+
+  <label>Description</label>
+  <input type="text" id="description" />
+
+  <label>Qty</label>
+  <input type="number" id="qty" step="1" />
+
+  <label>Unit Price</label>
+  <input type="number" id="unitPrice" step="0.01" />
+
+  <label>Base Total</label>
+  <input type="number" id="baseTotal" step="0.01" />
+
+  <label>Minus Rebate</label>
+  <input type="number" id="minusRebate" step="0.01" />
+
+  <label>Taxed Amount</label>
+  <input type="number" id="taxedAmt" step="0.01" />
+
+  <label>Final Cost</label>
+  <input type="number" id="finalCost" step="0.01" />
+
+  <label>Payment</label>
+  <input type="text" id="payment" />
+
+  <label>Category</label>
+  <input type="text" id="category" />
+
+  <button id="submitBtn">Submit Entry</button>
+  <button id="installBtn" class="install-btn">Install App</button>
+
+  <div class="status" id="status"></div>
+
+  <footer>Ledger Pro • Offline Ready</footer>
+</main>
 
 <script>
-const TAX_RATE = 0.06;
-let capturedItems = [];
-let base64Img = "";
-let mimeType = "image/jpeg";
+  const WEB_APP_URL = "YOUR_WEB_APP_URL";
 
-function round(n){ return Math.round(n*100)/100; }
+  const statusEl = document.getElementById("status");
+  const submitBtn = document.getElementById("submitBtn");
 
-function computeItem({q,p,itemManual,isT,m11,gD}){
-  const base=q*p;
-  let tax=0,minusRebate=0,final=0,rebAmt=0;
-
-  if(m11){
-    tax=isT?round(base*TAX_RATE):0;
-    rebAmt=round((base*0.11)+itemManual);
-    minusRebate=round(base-rebAmt);
-    final=round(base+tax-rebAmt);
-  } else {
-    rebAmt=round((base*gD)+itemManual);
-    minusRebate=round(base-rebAmt);
-    tax=isT?round(minusRebate*TAX_RATE):0;
-    final=round(minusRebate+tax);
+  function setStatus(msg, color = "#111827") {
+    statusEl.textContent = msg;
+    statusEl.style.color = color;
   }
 
-  return {base,tax,minusRebate,final,rebAmt};
-}
+  submitBtn.addEventListener("click", async () => {
+    submitBtn.disabled = true;
+    setStatus("Submitting...");
 
-document.getElementById("fileIn").onchange = async (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
+    const payload = {
+      items: [
+        {
+          date: document.getElementById("date").value,
+          origDate: document.getElementById("date").value,
+          itemNo: document.getElementById("itemNo").value,
+          description: document.getElementById("description").value,
+          qty: document.getElementById("qty").value,
+          unitPrice: document.getElementById("unitPrice").value,
+          baseTotal: document.getElementById("baseTotal").value,
+          minusRebate: document.getElementById("minusRebate").value,
+          taxedAmt: document.getElementById("taxedAmt").value,
+          finalCost: document.getElementById("finalCost").value,
+          payment: document.getElementById("payment").value,
+          category: document.getElementById("category").value,
+          rebateId: "",
+          rebateDesc: "",
+          rebateAmt: "",
+          store: document.getElementById("store").value
+        }
+      ]
+    };
 
-  mimeType = file.type;
+    try {
+      const res = await fetch(WEB_APP_URL, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" }
+      });
 
-  const reader = new FileReader();
-  reader.onloadend = async ()=>{
-    base64Img = reader.result.split(',')[1];
-
-    document.getElementById("status").innerText="Parsing…";
-
-    const res = await fetch(getUrl(),{
-      method:"POST",
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        mode:"PARSE_RECEIPT",
-        imageBlob:base64Img,
-        mimeType
-      })
-    });
-
-    const json = await res.json();
-
-    if(!json.ok){
-      document.getElementById("status").innerText=json.error;
-      return;
+      if (res.ok) {
+        setStatus("Saved ✅", "#10b981");
+        document.querySelectorAll("input").forEach(i => i.value = "");
+      } else {
+        throw new Error("Server error");
+      }
+    } catch (err) {
+      setStatus("Failed ❌ (offline or server)", "#ef4444");
     }
 
-    capturedItems = json.data.items || [];
-    renderItems();
-    document.getElementById("status").innerText="Ready";
-  };
-
-  reader.readAsDataURL(file);
-};
-
-function renderItems(){
-  const container = document.getElementById("items");
-  container.innerHTML="";
-
-  capturedItems.forEach((it,i)=>{
-    container.innerHTML += `
-      <div>
-        ${it.description}
-        <input type="number" id="q-${i}" value="${it.qty}">
-        <input type="number" id="p-${i}" value="${it.unitPrice}">
-      </div>
-    `;
-  });
-}
-
-async function sync(){
-  const payload = {
-    mode:"SYNC_ITEMS",
-    imageBlob:base64Img,
-    mimeType,
-    items: capturedItems.map((it,i)=>{
-      const q=parseFloat(document.getElementById(`q-${i}`).value)||0;
-      const p=parseFloat(document.getElementById(`p-${i}`).value)||0;
-
-      const {base,tax,minusRebate,final,rebAmt} =
-        computeItem({q,p,itemManual:0,isT:true,m11:false,gD:0});
-
-      return {
-        date:new Date().toISOString().slice(0,10),
-        origDate:"",
-        itemNo:it.itemNo,
-        description:it.description,
-        qty:q,
-        unitPrice:p,
-        baseTotal:base,
-        taxedAmt:tax,
-        minusRebate:minusRebate,
-        finalCost:final,
-        payment:"",
-        category:"Materials",
-        rebateId:"",
-        rebateDesc:"",
-        rebateAmt:rebAmt,
-        store:it.store
-      };
-    })
-  };
-
-  if(!navigator.onLine){
-    queueOffline(payload);
-    alert("Saved offline");
-    return;
-  }
-
-  await sendPayload(payload);
-}
-
-async function sendPayload(payload){
-  const res = await fetch(getUrl(),{
-    method:"POST",
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(payload)
+    submitBtn.disabled = false;
   });
 
-  const json = await res.json();
-  if(!json.ok) alert(json.error);
-  else alert("Synced");
-}
-
-function queueOffline(payload){
-  const q = JSON.parse(localStorage.getItem("ledgerQueue")||"[]");
-  q.push(payload);
-  localStorage.setItem("ledgerQueue",JSON.stringify(q));
-}
-
-window.addEventListener("online", flushQueue);
-
-async function flushQueue(){
-  const q = JSON.parse(localStorage.getItem("ledgerQueue")||"[]");
-  if(!q.length) return;
-
-  for(const payload of q){
-    await sendPayload(payload);
+  /* =========================
+     SERVICE WORKER REGISTER
+  ========================== */
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").then(reg => {
+      reg.update();
+      console.log("SW registered");
+    }).catch(err => console.log("SW failed", err));
   }
 
-  localStorage.removeItem("ledgerQueue");
-}
+  /* =========================
+     INSTALL PROMPT HANDLER
+  ========================== */
+  let deferredPrompt;
+  const installBtn = document.getElementById("installBtn");
 
-function getUrl(){
-  return document.getElementById("url").value;
-}
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = "block";
+  });
+
+  installBtn.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const result = await deferredPrompt.userChoice;
+    if (result.outcome === "accepted") {
+      installBtn.style.display = "none";
+    }
+    deferredPrompt = null;
+  });
 </script>
 
 </body>
