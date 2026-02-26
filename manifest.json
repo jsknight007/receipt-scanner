@@ -1,9 +1,13 @@
 {
-  "name": "Ledger Pro 4.4",
+  "name": "Ledger Pro 4.5",
   "short_name": "LedgerPro",
+  "id": "/",
   "description": "AI-Powered Receipt and Rebate Tracker",
-  "start_url": "index.html",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "browser"],
+  "orientation": "portrait",
   "background_color": "#f8fafc",
   "theme_color": "#6366f1",
   "icons": [
