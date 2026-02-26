@@ -1,219 +1,245 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Ledger Pro 4.5</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#6366f1" />
-
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      margin: 0;
-      background: #f8fafc;
-      color: #111827;
-    }
-
-    header {
-      background: #6366f1;
-      color: white;
-      padding: 16px;
-      text-align: center;
-      font-size: 20px;
-      font-weight: 600;
-    }
-
-    main {
-      padding: 16px;
-      max-width: 600px;
-      margin: auto;
-    }
-
-    input, select, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: 1px solid #d1d5db;
-      box-sizing: border-box;
-    }
-
-    button {
-      background: #6366f1;
-      color: white;
-      border: none;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    button:disabled {
-      background: #9ca3af;
-      cursor: not-allowed;
-    }
-
-    .status {
-      margin-top: 12px;
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    .install-btn {
-      display: none;
-      margin-top: 10px;
-      background: #10b981;
-    }
-
-    footer {
-      text-align: center;
-      font-size: 12px;
-      margin-top: 20px;
-      color: #6b7280;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="manifest" href="manifest.json">
+    <title>Ledger Pro v6.8</title>
+    <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
+    <style>
+        :root { --menards: #15803d; --lowes: #004990; --slate: #1e293b; --accent: #6366f1; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #f1f5f9; padding: 15px; max-width: 500px; margin: auto; color: var(--slate); }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 12px; border: 1px solid #e2e8f0; }
+        .camera-btn { background: var(--accent); color: white; padding: 18px; text-align: center; border-radius: 12px; font-weight: bold; cursor: pointer; display: block; border:none; width:100%; font-size:1rem; }
+        .sync-btn { background: #10b981; color: white; width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
+        input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
+        .item-row { border-bottom: 2px solid #f1f5f9; padding: 12px 0; }
+        .row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .live-total { text-align: right; font-weight: 800; color: var(--accent); font-size: 0.9rem; margin-top:5px; }
+        #grandTotalCard { background: var(--slate); color: white; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; position: sticky; bottom: 10px; z-index: 10; }
+    </style>
 </head>
 <body>
 
-<header>Ledger Pro 4.5</header>
+    <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0;">
+        <h2 style="margin:0; font-size:1.2rem;">Ledger Pro <small>v6.8</small></h2>
+        <button onclick="toggleConfig()" style="background:none; border:none; font-size:1.5rem;">⚙️</button>
+    </div>
 
-<main>
-  <label>Date</label>
-  <input type="date" id="date" />
+    <div id="config" class="card" style="display:none;">
+        <label>API Key</label><input type="password" id="key">
+        <label>Script URL</label><input type="text" id="url">
+        <button onclick="saveConfig()" style="width:100%; padding:10px; background:var(--slate); color:white; border:none; border-radius:8px;">Save & Refresh</button>
+    </div>
 
-  <label>Store</label>
-  <input type="text" id="store" placeholder="Lowes, Menards, etc." />
+    <div class="card">
+        <label for="fileIn" class="camera-btn">📷 SCAN RECEIPT</label>
+        <input type="file" id="fileIn" accept="image/*" capture="environment" style="display:none">
+        <div id="status" style="text-align:center; font-size:0.8rem; margin-top:8px;">Ready</div>
+    </div>
 
-  <label>Item #</label>
-  <input type="text" id="itemNo" />
+    <div id="review" style="display:none">
+        <div class="card" id="headerCard">
+            <div class="row-grid">
+                <div><label>Store</label><input type="text" id="store" oninput="handleStoreChange()"></div>
+                <div><label>Receipt Date</label><input type="date" id="origDate"></div>
+            </div>
+            <div class="row-grid" style="margin-top:10px;">
+                <div><label>Rebate ID</label><input type="text" id="rebId" placeholder="e.g. 2405"></div>
+                <div><label>Rebate Desc</label><input type="text" id="rebDesc" placeholder="15% Bag Sale"></div>
+            </div>
+            <div id="mLogicUI" style="display:none; margin-top:10px; background:#f0fdf4; padding:8px; border-radius:8px;">
+                <label style="display:flex; align-items:center; gap:8px; color:var(--menards);">
+                    <input type="checkbox" id="m11" checked onchange="handleStoreChange()"> Apply Menards 11% (Post-Tax)
+                </label>
+            </div>
+            <div id="discUI" style="margin-top:10px;">
+                <div class="row-grid">
+                    <div><label>Global Disc %</label><input type="number" id="gDisc" value="0" oninput="calculateAll()"></div>
+                    <div><label>Payment</label><input type="text" id="pay" placeholder="Lowes Card"></div>
+                </div>
+            </div>
+        </div>
 
-  <label>Description</label>
-  <input type="text" id="description" />
+        <div id="itemsContainer" class="card"><div id="itemsList"></div></div>
 
-  <label>Qty</label>
-  <input type="number" id="qty" step="1" />
+        <div id="grandTotalCard">
+            <span>EST. GRAND TOTAL:</span>
+            <span id="grandDisplay">$0.00</span>
+        </div>
+        <button onclick="sync()" class="sync-btn" style="margin-top:15px; margin-bottom:40px;">🚀 SYNC TO SPREADSHEET</button>
+    </div>
 
-  <label>Unit Price</label>
-  <input type="number" id="unitPrice" step="0.01" />
+    <datalist id="catHistoryList"></datalist>
 
-  <label>Base Total</label>
-  <input type="number" id="baseTotal" step="0.01" />
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+        let capturedItems = []; let base64Img = "";
+        const TAX_RATE = 0.06;
 
-  <label>Minus Rebate</label>
-  <input type="number" id="minusRebate" step="0.01" />
+        // Configuration
+        window.toggleConfig = () => { const c = document.getElementById('config'); c.style.display = c.style.display==='none'?'block':'none'; };
+        window.saveConfig = () => { 
+            localStorage.setItem('k', document.getElementById('key').value); 
+            localStorage.setItem('u', document.getElementById('url').value); 
+            location.reload(); 
+        };
+        
+        const updateCatUI = () => {
+            const history = JSON.parse(localStorage.getItem('ledgerCats') || '["Materials","Tools","Lumber"]');
+            document.getElementById('catHistoryList').innerHTML = history.map(c => `<option value="${c}">`).join('');
+        };
 
-  <label>Taxed Amount</label>
-  <input type="number" id="taxedAmt" step="0.01" />
+        window.handleStoreChange = () => {
+            let raw = document.getElementById('store').value.toUpperCase();
+            let clean = raw.replace(/[^A-Z]/g, ""); 
+            const isLowe = clean.includes("LOWE");
+            const isMenard = clean.includes("MENARD");
 
-  <label>Final Cost</label>
-  <input type="number" id="finalCost" step="0.01" />
+            if (isLowe) document.getElementById('store').value = "Lowes";
+            if (isMenard) document.getElementById('store').value = "Menards";
 
-  <label>Payment</label>
-  <input type="text" id="payment" />
+            document.getElementById('mLogicUI').style.display = isMenard ? 'block' : 'none';
+            const m11Active = isMenard && document.getElementById('m11').checked;
 
-  <label>Category</label>
-  <input type="text" id="category" />
+            if (isLowe) document.getElementById('gDisc').value = 5;
+            else if (isMenard && !m11Active) document.getElementById('gDisc').value = 15;
+            
+            calculateAll();
+        };
 
-  <button id="submitBtn">Submit Entry</button>
-  <button id="installBtn" class="install-btn">Install App</button>
+        window.calculateAll = () => {
+            let runningTotal = 0;
+            const isM = document.getElementById('store').value.toUpperCase().includes('MENARD');
+            const m11 = isM && document.getElementById('m11').checked;
+            const gD = parseFloat(document.getElementById('gDisc').value || 0) / 100;
 
-  <div class="status" id="status"></div>
+            capturedItems.forEach((_, i) => {
+                const q = parseFloat(document.getElementById(`q-${i}`).value) || 0;
+                const p = parseFloat(document.getElementById(`p-${i}`).value) || 0;
+                const itemManual = parseFloat(document.getElementById(`r-${i}`).value) || 0;
+                const isT = document.getElementById(`t-${i}`).checked;
 
-  <footer>Ledger Pro • Offline Ready</footer>
-</main>
+                const base = q * p;
+                let tax = 0, minusRebate = 0, final = 0, rebAmt = 0;
 
-<script>
-  const WEB_APP_URL = "YOUR_WEB_APP_URL";
+                if (m11) {
+                    tax = isT ? Math.round(base * TAX_RATE * 100) / 100 : 0;
+                    rebAmt = Math.round(((base * 0.11) + itemManual) * 100) / 100;
+                    minusRebate = Math.round((base - rebAmt) * 100) / 100;
+                    final = Math.round((base + tax - rebAmt) * 100) / 100;
+                } else {
+                    rebAmt = Math.round(((base * gD) + itemManual) * 100) / 100;
+                    minusRebate = Math.round((base - rebAmt) * 100) / 100;
+                    tax = isT ? Math.round(minusRebate * TAX_RATE * 100) / 100 : 0;
+                    final = Math.round((minusRebate + tax) * 100) / 100;
+                }
+                document.getElementById(`total-${i}`).innerText = `$${final.toFixed(2)}`;
+                runningTotal += final;
+            });
+            document.getElementById('grandDisplay').innerText = `$${runningTotal.toFixed(2)}`;
+        };
 
-  const statusEl = document.getElementById("status");
-  const submitBtn = document.getElementById("submitBtn");
+        document.getElementById('fileIn').onchange = async (e) => {
+            const file = e.target.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                base64Img = reader.result.split(',')[1];
+                document.getElementById('status').innerText = "🧠 ANALYZING...";
+                try {
+                    const genAI = new GoogleGenerativeAI(localStorage.getItem('k'));
+                    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const res = await model.generateContent([`Return JSON only: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":1,"unitPrice":1.00}]}`, {inlineData: {data: base64Img, mimeType: "image/jpeg"}}]);
+                    const text = res.response.text();
+                    const data = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1));
+                    document.getElementById('store').value = data.store || "";
+                    document.getElementById('origDate').value = data.date || "";
+                    capturedItems = data.items;
+                    const list = document.getElementById('itemsList'); list.innerHTML = "";
+                    capturedItems.forEach((it, i) => {
+                        list.innerHTML += `<div class="item-row">
+                            <div class="row-grid">
+                                <div><label>Item No</label><input type="text" value="${it.itemNo || ''}" id="n-${i}"></div>
+                                <div><label>Description</label><input type="text" value="${it.description}" id="d-${i}"></div>
+                            </div>
+                            <div class="row-grid">
+                                <div><label>Qty</label><input type="number" step="any" value="${it.qty}" id="q-${i}" oninput="calculateAll()"></div>
+                                <div><label>Price</label><input type="number" step="0.01" value="${it.unitPrice}" id="p-${i}" oninput="calculateAll()"></div>
+                            </div>
+                            <div class="row-grid" style="margin-top:5px;">
+                                <div><label>Manual Disc ($)</label><input type="number" value="0" id="r-${i}" oninput="calculateAll()"></div>
+                                <div style="text-align:center;"><label>Taxable</label><br><input type="checkbox" id="t-${i}" checked onchange="calculateAll()" style="width:20px; height:20px;"></div>
+                            </div>
+                            <div style="margin-top:5px;">
+                                <label>Category</label><input type="text" list="catHistoryList" id="c-${i}" placeholder="Materials">
+                            </div>
+                            <div class="live-total" id="total-${i}">$0.00</div>
+                        </div>`;
+                    });
+                    updateCatUI(); handleStoreChange();
+                    document.getElementById('review').style.display = 'block';
+                    document.getElementById('status').innerText = "✅ DONE";
+                } catch (err) { alert("AI Scan failed. Check API key."); }
+            };
+            reader.readAsDataURL(file);
+        };
 
-  function setStatus(msg, color = "#111827") {
-    statusEl.textContent = msg;
-    statusEl.style.color = color;
-  }
+        window.sync = async () => {
+            const url = localStorage.getItem('u');
+            if(!url) { alert("Missing Script URL"); return; }
+            const store = document.getElementById('store').value;
+            const m11 = store.toUpperCase().includes('MENARD') && document.getElementById('m11').checked;
+            const gD = parseFloat(document.getElementById('gDisc').value || 0) / 100;
+            let cats = JSON.parse(localStorage.getItem('ledgerCats') || '[]');
 
-  submitBtn.addEventListener("click", async () => {
-    submitBtn.disabled = true;
-    setStatus("Submitting...");
+            const payload = {
+                items: capturedItems.map((_, i) => {
+                    const q = parseFloat(document.getElementById(`q-${i}`).value);
+                    const p = parseFloat(document.getElementById(`p-${i}`).value);
+                    const itemM = parseFloat(document.getElementById(`r-${i}`).value);
+                    const isT = document.getElementById(`t-${i}`).checked;
+                    const cat = document.getElementById(`c-${i}`).value || "Materials";
+                    const base = q * p;
+                    if(cat && !cats.includes(cat)) { cats.unshift(cat); cats = cats.slice(0, 5); }
 
-    const payload = {
-      items: [
-        {
-          date: document.getElementById("date").value,
-          origDate: document.getElementById("date").value,
-          itemNo: document.getElementById("itemNo").value,
-          description: document.getElementById("description").value,
-          qty: document.getElementById("qty").value,
-          unitPrice: document.getElementById("unitPrice").value,
-          baseTotal: document.getElementById("baseTotal").value,
-          minusRebate: document.getElementById("minusRebate").value,
-          taxedAmt: document.getElementById("taxedAmt").value,
-          finalCost: document.getElementById("finalCost").value,
-          payment: document.getElementById("payment").value,
-          category: document.getElementById("category").value,
-          rebateId: "",
-          rebateDesc: "",
-          rebateAmt: "",
-          store: document.getElementById("store").value
-        }
-      ]
-    };
+                    let taxAmt = 0, minReb = 0, final = 0, rebAmt = 0;
+                    if(m11) {
+                        taxAmt = isT ? Math.round(base * TAX_RATE * 100) / 100 : 0;
+                        rebAmt = Math.round(((base * 0.11) + itemM) * 100) / 100;
+                        minReb = Math.round((base - rebAmt) * 100) / 100;
+                        final = Math.round((base + taxAmt - rebAmt) * 100) / 100;
+                    } else {
+                        rebAmt = Math.round(((base * gD) + itemM) * 100) / 100;
+                        minReb = Math.round((base - rebAmt) * 100) / 100;
+                        taxAmt = isT ? Math.round(minReb * TAX_RATE * 100) / 100 : 0;
+                        final = Math.round((minReb + taxAmt) * 100) / 100;
+                    }
 
-    try {
-      const res = await fetch(WEB_APP_URL, {
-        method: "POST",
-        body: JSON.stringify(payload),
-        headers: { "Content-Type": "application/json" }
-      });
+                    return {
+                        date: new Date().toLocaleDateString(),
+                        origDate: document.getElementById('origDate').value,
+                        itemNo: document.getElementById(`n-${i}`).value,
+                        description: document.getElementById(`d-${i}`).value,
+                        qty: q, unitPrice: p, baseTotal: base.toFixed(2),
+                        taxedAmt: taxAmt.toFixed(2),
+                        minusRebate: minReb.toFixed(2),
+                        finalCost: final.toFixed(2),
+                        payment: document.getElementById('pay').value,
+                        category: cat,
+                        rebateId: document.getElementById('rebId').value,
+                        rebateDesc: document.getElementById('rebDesc').value,
+                        rebateAmt: rebAmt.toFixed(2),
+                        store: store
+                    };
+                })
+            };
+            localStorage.setItem('ledgerCats', JSON.stringify(cats));
+            await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+            alert("Synced!"); location.reload();
+        };
 
-      if (res.ok) {
-        setStatus("Saved ✅", "#10b981");
-        document.querySelectorAll("input").forEach(i => i.value = "");
-      } else {
-        throw new Error("Server error");
-      }
-    } catch (err) {
-      setStatus("Failed ❌ (offline or server)", "#ef4444");
-    }
-
-    submitBtn.disabled = false;
-  });
-
-  /* =========================
-     SERVICE WORKER REGISTER
-  ========================== */
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").then(reg => {
-      reg.update();
-      console.log("SW registered");
-    }).catch(err => console.log("SW failed", err));
-  }
-
-  /* =========================
-     INSTALL PROMPT HANDLER
-  ========================== */
-  let deferredPrompt;
-  const installBtn = document.getElementById("installBtn");
-
-  window.addEventListener("beforeinstallprompt", (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    installBtn.style.display = "block";
-  });
-
-  installBtn.addEventListener("click", async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const result = await deferredPrompt.userChoice;
-    if (result.outcome === "accepted") {
-      installBtn.style.display = "none";
-    }
-    deferredPrompt = null;
-  });
-</script>
-
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+    </script>
 </body>
 </html>
