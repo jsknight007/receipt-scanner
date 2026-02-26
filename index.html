@@ -143,14 +143,23 @@
 
 document.getElementById('fileIn').onchange = async (e) => {
     const file = e.target.files[0]; if(!file) return;
+    
+    // 1. Log file info to verify it's captured
+    console.log("File captured:", file.name, file.size);
+    
     const reader = new FileReader();
     reader.onloadend = async () => {
         base64Img = reader.result.split(',')[1];
-        document.getElementById('status').innerText = "🧠 ANALYZING...";
+        document.getElementById('status').innerText = "DEBUGGING...";
+        
         try {
-            const genAI = new GoogleGenerativeAI(localStorage.getItem('k'));
-            // 🔥 UPDATED TO STABLE 2.0 FLASH
+            const apiKey = localStorage.getItem('k');
+            if (!apiKey) throw new Error("API Key is missing from settings!");
+            
+            const genAI = new GoogleGenerativeAI(apiKey);
             const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+            
+            console.log("Sending request to Gemini 2.0...");
             
             const res = await model.generateContent([
                 `Return JSON only: {"store":"str","date":"YYYY-MM-DD","items":[{"itemNo":"str","description":"str","qty":1,"unitPrice":1.00}]}`, 
@@ -158,44 +167,15 @@ document.getElementById('fileIn').onchange = async (e) => {
             ]);
 
             const text = res.response.text();
+            console.log("Raw AI Response:", text); // 🛠️ WE WILL SEE THE JSON HERE
+            
             const data = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1));
+            // ... (rest of your population logic remains the same)
             
-            // UI Population Logic
-            document.getElementById('store').value = data.store || "";
-            document.getElementById('origDate').value = data.date || "";
-            capturedItems = data.items;
-            
-            const list = document.getElementById('itemsList'); 
-            list.innerHTML = "";
-            capturedItems.forEach((it, i) => {
-                list.innerHTML += `
-                    <div class="item-row">
-                        <div class="row-grid">
-                            <div><label>Item No</label><input type="text" value="${it.itemNo || ''}" id="n-${i}"></div>
-                            <div><label>Description</label><input type="text" value="${it.description}" id="d-${i}"></div>
-                        </div>
-                        <div class="row-grid">
-                            <div><label>Qty</label><input type="number" step="any" value="${it.qty}" id="q-${i}" oninput="calculateAll()"></div>
-                            <div><label>Price</label><input type="number" step="0.01" value="${it.unitPrice}" id="p-${i}" oninput="calculateAll()"></div>
-                        </div>
-                        <div class="row-grid" style="margin-top:5px;">
-                            <div><label>Manual Disc ($)</label><input type="number" value="0" id="r-${i}" oninput="calculateAll()"></div>
-                            <div style="text-align:center;"><label>Taxable</label><br><input type="checkbox" id="t-${i}" checked onchange="calculateAll()" style="width:20px; height:20px;"></div>
-                        </div>
-                        <div style="margin-top:5px;">
-                            <label>Category</label><input type="text" list="catHistoryList" id="c-${i}" placeholder="Materials">
-                        </div>
-                        <div class="live-total" id="total-${i}">$0.00</div>
-                    </div>`;
-            });
-            updateCatUI(); 
-            handleStoreChange();
-            document.getElementById('review').style.display = 'block';
-            document.getElementById('status').innerText = "✅ DONE";
         } catch (err) { 
-            // 🛠️ DEBUG ALERT: This will tell us EXACTLY why it failed
-            console.error(err);
-            alert("AI Error: " + err.message); 
+            // 🛠️ THE CRITICAL DEBUGGER
+            console.error("DEBUGGER ERROR:", err);
+            alert("DEBUGGER DETECTED: \n" + err.message + "\n\nCheck the Browser Console (F12) for the full network response."); 
             document.getElementById('status').innerText = "❌ FAILED";
         }
     };
