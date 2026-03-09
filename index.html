@@ -3,49 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Lite v8.1</title>
+    <title>Ledger Lite v8.2</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
-        body { font-family: system-ui, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; max-width: 500px; margin: auto; }
+        :root { --accent: #6366f1; --bg: #f8fafc; --text: #1e293b; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); padding: 20px; color: var(--text); max-width: 500px; margin: auto; }
         .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid #e2e8f0; }
-        .btn { display: block; width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; text-align: center; font-size: 1rem; }
-        .primary { background: #6366f1; color: white; }
+        .btn { display: block; width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; text-align: center; font-size: 1rem; transition: transform 0.1s; }
+        .btn:active { transform: scale(0.98); }
+        .primary { background: var(--accent); color: white; }
         .success { background: #10b981; color: white; margin-top: 10px; }
+        .config-btn { background: none; border: 1px solid #cbd5e1; color: #64748b; font-size: 0.8rem; padding: 8px; margin-bottom: 20px; }
         input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
-        label { font-size: 0.7rem; font-weight: bold; color: #64748b; text-transform: uppercase; }
-        #status { text-align: center; font-size: 0.85rem; color: #6366f1; margin: 10px 0; }
-        .item { border-bottom: 2px solid #f1f5f9; padding: 15px 0; }
-        .item-grid { display: grid; grid-template-columns: 100px 1fr; gap: 8px; }
+        label { font-size: 0.7rem; font-weight: bold; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+        #status { text-align: center; font-size: 0.85rem; color: var(--accent); margin: 10px 0; font-weight: 600; }
+        .item { border-bottom: 2px solid #f1f5f9; padding: 15px 0; position: relative; }
+        .item:last-child { border-bottom: none; }
+        .item-grid { display: grid; grid-template-columns: 100px 1fr; gap: 10px; }
+        .subtotal-area { margin-top: 15px; padding-top: 15px; border-top: 2px solid #e2e8f0; display: flex; justify-content: space-between; font-weight: bold; color: var(--accent); }
     </style>
 </head>
 <body>
 
-    <button class="btn" style="background:none; border:1px solid #ccc; color:#666; margin-bottom:10px;" onclick="toggleConfig()">⚙️ Settings</button>
+    <button class="btn config-btn" onclick="toggleConfig()">⚙️ Settings</button>
 
     <div id="config" class="card" style="display:none;">
-        <label>Gemini API Key</label><input type="password" id="key">
-        <label>Apps Script URL</label><input type="text" id="url">
+        <label>Gemini API Key</label><input type="password" id="key" placeholder="AIza...">
+        <label>Apps Script URL</label><input type="text" id="url" placeholder="https://script.google.com/...">
         <button class="btn primary" onclick="saveConfig()">Save Settings</button>
     </div>
 
     <div class="card">
         <label for="fileIn" class="btn primary">📷 Scan Receipt</label>
         <input type="file" id="fileIn" accept="image/*" capture="environment" style="display:none">
-        <div id="status">Ready</div>
+        <div id="status">System Ready</div>
     </div>
 
     <div id="editor" style="display:none;">
         <div class="card">
             <label>Store</label><input type="text" id="store">
-            <label>Date</label><input type="date" id="date">
+            <label>Receipt Date</label><input type="date" id="date">
         </div>
-        <div id="itemList" class="card"></div>
-        <button class="btn success" onclick="sync()">🚀 Sync to Spreadsheet</button>
+        
+        <div id="itemList" class="card">
+            </div>
+
+        <div class="card">
+            <div class="subtotal-area">
+                <span>ESTIMATED SUBTOTAL:</span>
+                <span id="subtotalDisplay">$0.00</span>
+            </div>
+            <button class="btn success" onclick="sync()">🚀 Sync to Spreadsheet</button>
+        </div>
     </div>
 
     <script type="module">
         import { GoogleGenerativeAI } from "@google/generative-ai";
-        let capturedData = null;
+        let capturedItemsCount = 0;
 
         window.toggleConfig = () => {
             const el = document.getElementById('config');
@@ -55,49 +69,79 @@
         window.saveConfig = () => {
             localStorage.setItem('gemini_key', document.getElementById('key').value);
             localStorage.setItem('script_url', document.getElementById('url').value);
+            alert("Settings Saved!");
             location.reload();
         };
 
+        // Load saved values
         document.getElementById('key').value = localStorage.getItem('gemini_key') || '';
         document.getElementById('url').value = localStorage.getItem('script_url') || '';
 
+        window.updateSubtotal = () => {
+            let total = 0;
+            for (let i = 0; i < capturedItemsCount; i++) {
+                const val = parseFloat(document.getElementById(`price-${i}`).value) || 0;
+                total += val;
+            }
+            document.getElementById('subtotalDisplay').innerText = `$${total.toFixed(2)}`;
+        };
+
         document.getElementById('fileIn').onchange = async (e) => {
-            const file = e.target.files[0]; if (!file) return;
-            document.getElementById('status').innerText = "⏳ Reading Printed Text...";
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('status').innerText = "⏳ Filtering Handwriting...";
             const reader = new FileReader();
+            
             reader.onloadend = async () => {
                 const base64 = reader.result.split(',')[1];
+                const apiKey = localStorage.getItem('gemini_key');
+                
+                if (!apiKey) { alert("Please set your API Key first!"); return; }
+
                 try {
-                    const genAI = new GoogleGenerativeAI(localStorage.getItem('gemini_key'));
+                    const genAI = new GoogleGenerativeAI(apiKey);
+                    // Using the March 2026 stable Flash Lite
                     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
 
-                    // Strict instruction to ignore handwriting and capture item numbers
-                    const prompt = `Extract only MACHINE-PRINTED text from this receipt. IGNORE all handwritten notes or circles. Return JSON: {"store":"","date":"YYYY-MM-DD","items":[{"itemNo":"","desc":"","price":0.00}]}`;
+                    const prompt = `ACT AS A HIGH-PRECISION OCR SYSTEM. 
+                    - EXTRACT ONLY MACHINE-PRINTED DATA. 
+                    - STRICTLY IGNORE ALL HANDWRITTEN NOTES, PEN MARKS, CIRCLES, OR HANDWRITTEN PRICE CORRECTIONS.
+                    - LOCATE THE PRINTED 'PRICE' COLUMN IN THE RECEIPT TABLE.
+                    - RETURN JSON ONLY: {"store":"","date":"YYYY-MM-DD","items":[{"itemNo":"","desc":"","price":0.00}]}`;
                     
                     const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
                     const text = result.response.text();
-                    capturedData = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+                    
+                    const jsonMatch = text.match(/\{[\s\S]*\}/);
+                    const data = JSON.parse(jsonMatch[0]);
 
-                    document.getElementById('store').value = capturedData.store;
-                    document.getElementById('date').value = capturedData.date;
+                    document.getElementById('store').value = data.store || "";
+                    document.getElementById('date').value = data.date || "";
                     
                     const listEl = document.getElementById('itemList');
-                    listEl.innerHTML = '<label>Verify Items & SKU</label>';
-                    capturedData.items.forEach((item, i) => {
+                    listEl.innerHTML = '<label>Printed Items & SKU</label>';
+                    
+                    capturedItemsCount = data.items.length;
+                    data.items.forEach((item, i) => {
                         listEl.innerHTML += `
                             <div class="item">
                                 <div class="item-grid">
-                                    <div><label>Item #</label><input type="text" value="${item.itemNo}" id="no-${i}"></div>
+                                    <div><label>SKU/No</label><input type="text" value="${item.itemNo}" id="no-${i}"></div>
                                     <div><label>Description</label><input type="text" value="${item.desc}" id="desc-${i}"></div>
                                 </div>
-                                <label>Price</label><input type="number" step="0.01" value="${item.price}" id="price-${i}">
+                                <label>Printed Price</label>
+                                <input type="number" step="0.01" value="${item.price}" id="price-${i}" oninput="updateSubtotal()">
                             </div>`;
                     });
 
+                    updateSubtotal();
                     document.getElementById('editor').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ Done";
+                    document.getElementById('status').innerText = "✅ Scan Complete (Print Only)";
                 } catch (err) {
-                    alert("Scan Error: " + err.message);
+                    console.error(err);
+                    document.getElementById('status').innerText = "❌ Scan Failed";
+                    alert("AI Error: " + err.message);
                 }
             };
             reader.readAsDataURL(file);
@@ -105,18 +149,37 @@
 
         window.sync = async () => {
             const url = localStorage.getItem('script_url');
-            const finalData = {
-                store: document.getElementById('store').value,
-                date: document.getElementById('date').value,
-                items: capturedData.items.map((_, i) => ({
+            if (!url) { alert("Set Apps Script URL in Settings!"); return; }
+
+            document.getElementById('status').innerText = "🚀 Syncing Data...";
+            
+            const items = [];
+            for (let i = 0; i < capturedItemsCount; i++) {
+                items.push({
                     itemNo: document.getElementById(`no-${i}`).value,
                     desc: document.getElementById(`desc-${i}`).value,
                     price: document.getElementById(`price-${i}`).value
-                }))
+                });
+            }
+
+            const payload = {
+                store: document.getElementById('store').value,
+                date: document.getElementById('date').value,
+                items: items
             };
-            await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(finalData) });
-            alert("Synced!");
-            location.reload();
+
+            try {
+                await fetch(url, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify(payload)
+                });
+                alert("Successfully Synced to Master_Log!");
+                location.reload();
+            } catch (err) {
+                alert("Sync Failed: " + err.message);
+                document.getElementById('status').innerText = "❌ Sync Error";
+            }
         };
     </script>
 </body>
