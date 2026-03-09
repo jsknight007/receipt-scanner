@@ -3,36 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Receipt Scanner v8.0</title>
+    <title>Ledger Lite v8.1</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; max-width: 500px; margin: auto; }
-        .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 15px; border: 1px solid #e2e8f0; }
-        .btn { display: block; width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; text-align: center; font-size: 1rem; transition: transform 0.1s; }
-        .btn:active { transform: scale(0.98); }
+        body { font-family: system-ui, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; max-width: 500px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid #e2e8f0; }
+        .btn { display: block; width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; text-align: center; font-size: 1rem; }
         .primary { background: #6366f1; color: white; }
         .success { background: #10b981; color: white; margin-top: 10px; }
-        .config-btn { background: none; border: 1px solid #cbd5e1; color: #64748b; font-size: 0.8rem; padding: 8px; margin-bottom: 20px; }
         input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
-        label { font-size: 0.75rem; font-weight: bold; color: #64748b; text-transform: uppercase; }
-        #status { text-align: center; font-size: 0.85rem; color: #6366f1; margin: 10px 0; font-weight: 500; }
-        .item { border-bottom: 1px solid #f1f5f9; padding: 10px 0; }
+        label { font-size: 0.7rem; font-weight: bold; color: #64748b; text-transform: uppercase; }
+        #status { text-align: center; font-size: 0.85rem; color: #6366f1; margin: 10px 0; }
+        .item { border-bottom: 2px solid #f1f5f9; padding: 15px 0; }
+        .item-grid { display: grid; grid-template-columns: 100px 1fr; gap: 8px; }
     </style>
 </head>
 <body>
 
-    <button class="btn config-btn" onclick="toggleConfig()">⚙️ Settings</button>
+    <button class="btn" style="background:none; border:1px solid #ccc; color:#666; margin-bottom:10px;" onclick="toggleConfig()">⚙️ Settings</button>
 
     <div id="config" class="card" style="display:none;">
-        <label>Gemini API Key</label><input type="password" id="key" placeholder="Paste Key Here">
-        <label>Apps Script URL</label><input type="text" id="url" placeholder="https://script.google.com/...">
+        <label>Gemini API Key</label><input type="password" id="key">
+        <label>Apps Script URL</label><input type="text" id="url">
         <button class="btn primary" onclick="saveConfig()">Save Settings</button>
     </div>
 
     <div class="card">
         <label for="fileIn" class="btn primary">📷 Scan Receipt</label>
         <input type="file" id="fileIn" accept="image/*" capture="environment" style="display:none">
-        <div id="status">Ready to Scan</div>
+        <div id="status">Ready</div>
     </div>
 
     <div id="editor" style="display:none;">
@@ -56,61 +55,49 @@
         window.saveConfig = () => {
             localStorage.setItem('gemini_key', document.getElementById('key').value);
             localStorage.setItem('script_url', document.getElementById('url').value);
-            alert("Settings Saved!");
             location.reload();
         };
 
-        // Load saved config
         document.getElementById('key').value = localStorage.getItem('gemini_key') || '';
         document.getElementById('url').value = localStorage.getItem('script_url') || '';
 
         document.getElementById('fileIn').onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            document.getElementById('status').innerText = "⏳ Reading Receipt...";
+            const file = e.target.files[0]; if (!file) return;
+            document.getElementById('status').innerText = "⏳ Reading Printed Text...";
             const reader = new FileReader();
-            
             reader.onloadend = async () => {
                 const base64 = reader.result.split(',')[1];
-                const apiKey = localStorage.getItem('gemini_key');
-                
-                if (!apiKey) { alert("Add your API Key in Settings first!"); return; }
-
                 try {
-                    const genAI = new GoogleGenerativeAI(apiKey);
-                    // Using the new March 2026 Stable Model
+                    const genAI = new GoogleGenerativeAI(localStorage.getItem('gemini_key'));
                     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
 
-                    const prompt = `Extract receipt data into JSON: {"store":"","date":"YYYY-MM-DD","items":[{"desc":"","price":0.00}]}`;
-                    const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
-                    const response = await result.response;
-                    const text = response.text();
+                    // Strict instruction to ignore handwriting and capture item numbers
+                    const prompt = `Extract only MACHINE-PRINTED text from this receipt. IGNORE all handwritten notes or circles. Return JSON: {"store":"","date":"YYYY-MM-DD","items":[{"itemNo":"","desc":"","price":0.00}]}`;
                     
-                    // Clean JSON from response
-                    const jsonMatch = text.match(/\{[\s\S]*\}/);
-                    capturedData = JSON.parse(jsonMatch[0]);
+                    const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
+                    const text = result.response.text();
+                    capturedData = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
 
-                    // Update UI
                     document.getElementById('store').value = capturedData.store;
                     document.getElementById('date').value = capturedData.date;
                     
                     const listEl = document.getElementById('itemList');
-                    listEl.innerHTML = '<label>Items Found</label>';
+                    listEl.innerHTML = '<label>Verify Items & SKU</label>';
                     capturedData.items.forEach((item, i) => {
                         listEl.innerHTML += `
                             <div class="item">
-                                <input type="text" value="${item.desc}" id="desc-${i}">
-                                <input type="number" step="0.01" value="${item.price}" id="price-${i}">
+                                <div class="item-grid">
+                                    <div><label>Item #</label><input type="text" value="${item.itemNo}" id="no-${i}"></div>
+                                    <div><label>Description</label><input type="text" value="${item.desc}" id="desc-${i}"></div>
+                                </div>
+                                <label>Price</label><input type="number" step="0.01" value="${item.price}" id="price-${i}">
                             </div>`;
                     });
 
                     document.getElementById('editor').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ Verification Required";
+                    document.getElementById('status').innerText = "✅ Done";
                 } catch (err) {
-                    console.error(err);
-                    document.getElementById('status').innerText = "❌ Scan Failed";
-                    alert("Error: " + err.message);
+                    alert("Scan Error: " + err.message);
                 }
             };
             reader.readAsDataURL(file);
@@ -118,32 +105,18 @@
 
         window.sync = async () => {
             const url = localStorage.getItem('script_url');
-            if (!url) { alert("Missing Apps Script URL!"); return; }
-
-            document.getElementById('status').innerText = "🚀 Syncing...";
-            
-            // Build the final payload from inputs
             const finalData = {
                 store: document.getElementById('store').value,
                 date: document.getElementById('date').value,
                 items: capturedData.items.map((_, i) => ({
+                    itemNo: document.getElementById(`no-${i}`).value,
                     desc: document.getElementById(`desc-${i}`).value,
                     price: document.getElementById(`price-${i}`).value
                 }))
             };
-
-            try {
-                // We use 'no-cors' to avoid browser security blocks with Apps Script
-                await fetch(url, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify(finalData)
-                });
-                alert("Successfully Synced!");
-                location.reload();
-            } catch (err) {
-                alert("Sync Error: " + err.message);
-            }
+            await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(finalData) });
+            alert("Synced!");
+            location.reload();
         };
     </script>
 </body>
