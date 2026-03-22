@@ -3,118 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Lite v8.3</title>
+    <title>Ledger Lite v8.7</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
-        :root { --accent: #6366f1; --bg: #f8fafc; --text: #1e293b; }
-        
-        /* 🛠️ THE FIX: This ensures padding doesn't push elements off-screen */
+        :root { --accent: #6366f1; --bg: #f8fafc; --border: #e2e8f0; }
         * { box-sizing: border-box; }
-
-        body { 
-            font-family: system-ui, -apple-system, sans-serif; 
-            background: var(--bg); 
-            padding: 15px; 
-            color: var(--text); 
-            max-width: 500px; 
-            margin: auto; 
-            overflow-x: hidden; /* Prevents side-scrolling */
-        }
-
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); padding: 15px; max-width: 500px; margin: auto; overflow-x: hidden; }
         
-        .card { 
-            background: white; 
-            padding: 20px; 
-            border-radius: 16px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
-            margin-bottom: 15px; 
-            border: 1px solid #e2e8f0; 
-            width: 100%; /* Keeps card contained */
-        }
-
-        .btn { 
-            display: block; 
-            width: 100%; 
-            padding: 16px; 
-            border: none; 
-            border-radius: 12px; 
-            font-weight: bold; 
-            cursor: pointer; 
-            text-align: center; 
-            font-size: 1rem; 
-            transition: background 0.2s;
-            text-decoration: none;
-        }
-
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 12px; border: 1px solid var(--border); width: 100%; }
+        .btn { display: block; width: 100%; padding: 16px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; font-size: 1rem; }
         .primary { background: var(--accent); color: white; }
-        .primary:active { background: #4f46e5; }
-        
         .success { background: #10b981; color: white; margin-top: 10px; }
+        .config-btn { background: none; border: 1px solid #cbd5e1; color: #64748b; font-size: 0.7rem; padding: 8px; margin-bottom: 10px; width: auto; }
         
-        .config-btn { 
-            background: white; 
-            border: 1px solid #cbd5e1; 
-            color: #64748b; 
-            font-size: 0.75rem; 
-            padding: 8px 12px; 
-            border-radius: 8px;
-        }
-
-        input { 
-            width: 100%; 
-            padding: 12px; 
-            margin: 8px 0; 
-            border: 1px solid #e2e8f0; 
-            border-radius: 8px; 
-            font-size: 1rem; 
-            display: block;
-        }
-
-        label { 
-            font-size: 0.7rem; 
-            font-weight: 800; 
-            color: #64748b; 
-            text-transform: uppercase; 
-            letter-spacing: 0.05em; 
-            display: block;
-            margin-top: 5px;
-        }
-
+        input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; display: block; }
+        label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; margin-top: 8px; letter-spacing: 0.05em; }
+        
         #status { text-align: center; font-size: 0.85rem; color: var(--accent); margin: 10px 0; font-weight: 600; }
-        
-        .item { border-bottom: 2px solid #f1f5f9; padding: 15px 0; }
-        .item:last-child { border-bottom: none; }
-        
-        .item-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 2fr; 
-            gap: 10px; 
-            margin-bottom: 5px;
-        }
-
-        .subtotal-area { 
-            margin-top: 10px; 
-            padding-top: 15px; 
-            border-top: 2px solid #e2e8f0; 
-            display: flex; 
-            justify-content: space-between; 
-            font-weight: 800; 
-            color: var(--accent); 
-        }
+        .item-box { border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 15px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <span style="font-weight:900; letter-spacing:-0.5px;">LEDGER LITE <small>v8.3</small></span>
-        <button class="config-btn" onclick="toggleConfig()">⚙️ SETTINGS</button>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-weight:900; font-size:0.9rem;">LEDGER LITE v8.7</span>
+        <button class="config-btn" onclick="document.getElementById('config').style.display='block'">⚙️ SETTINGS</button>
     </div>
 
     <div id="config" class="card" style="display:none;">
         <label>Gemini API Key</label><input type="password" id="key">
         <label>Apps Script URL</label><input type="text" id="url">
-        <button class="btn primary" onclick="saveConfig()">SAVE SETTINGS</button>
+        <button class="btn primary" onclick="saveConfig()">SAVE & REFRESH</button>
     </div>
 
     <div class="card">
@@ -125,124 +46,125 @@
 
     <div id="editor" style="display:none;">
         <div class="card">
-            <label>Store</label><input type="text" id="store">
             <label>Receipt Date</label><input type="date" id="date">
+            
+            <label>Payment Type (Global)</label>
+            <input type="text" id="pay" list="payHistory" placeholder="e.g. Visa 1234">
+            <datalist id="payHistory"></datalist>
+
+            <div class="grid-2">
+                <div><label>Rebate #</label><input type="text" id="rebNo"></div>
+                <div><label>Rebate Desc</label><input type="text" id="rebDesc"></div>
+            </div>
         </div>
         
         <div id="itemList" class="card"></div>
-
-        <div class="card">
-            <div class="subtotal-area">
-                <span>SUBTOTAL:</span>
-                <span id="subtotalDisplay">$0.00</span>
-            </div>
-            <button class="btn success" onclick="sync()">🚀 SYNC TO SPREADSHEET</button>
-        </div>
+        <button class="btn success" onclick="sync()">🚀 SYNC ALL TO SHEET</button>
     </div>
 
     <script type="module">
         import { GoogleGenerativeAI } from "@google/generative-ai";
-        let capturedItemsCount = 0;
+        let capturedCount = 0;
 
-        window.toggleConfig = () => {
-            const el = document.getElementById('config');
-            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        // Initialize Config and History
+        document.getElementById('key').value = localStorage.getItem('gemini_key') || '';
+        document.getElementById('url').value = localStorage.getItem('script_url') || '';
+        
+        const updateHistoryUI = () => {
+            const history = JSON.parse(localStorage.getItem('pay_history') || '[]');
+            document.getElementById('payHistory').innerHTML = history.map(h => `<option value="${h}">`).join('');
         };
+        updateHistoryUI();
 
         window.saveConfig = () => {
             localStorage.setItem('gemini_key', document.getElementById('key').value);
             localStorage.setItem('script_url', document.getElementById('url').value);
-            alert("Settings Saved!");
             location.reload();
         };
 
-        document.getElementById('key').value = localStorage.getItem('gemini_key') || '';
-        document.getElementById('url').value = localStorage.getItem('script_url') || '';
-
-        window.updateSubtotal = () => {
-            let total = 0;
-            for (let i = 0; i < capturedItemsCount; i++) {
-                const val = parseFloat(document.getElementById(`price-${i}`).value) || 0;
-                total += val;
-            }
-            document.getElementById('subtotalDisplay').innerText = `$${total.toFixed(2)}`;
-        };
-
         document.getElementById('fileIn').onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            document.getElementById('status').innerText = "⏳ SCANNING...";
+            const file = e.target.files[0]; if (!file) return;
+            document.getElementById('status').innerText = "⏳ CAPTURING PRINTED DATA...";
             const reader = new FileReader();
-            
             reader.onloadend = async () => {
-                const base64 = reader.result.split(',')[1];
-                const apiKey = localStorage.getItem('gemini_key');
-                if (!apiKey) { alert("Missing API Key!"); return; }
-
                 try {
+                    const apiKey = localStorage.getItem('gemini_key');
+                    if (!apiKey) throw new Error("Missing API Key");
+                    
                     const genAI = new GoogleGenerativeAI(apiKey);
                     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
-
-                    const prompt = `ACT AS OCR. EXTRACT MACHINE-PRINTED DATA ONLY. IGNORE HANDWRITING. JSON: {"store":"","date":"YYYY-MM-DD","items":[{"itemNo":"","desc":"","price":0.00}]}`;
                     
-                    const result = await model.generateContent([prompt, { inlineData: { data: base64, mimeType: "image/jpeg" } }]);
+                    const prompt = `ACT AS OCR. EXTRACT MACHINE-PRINTED DATA ONLY. IGNORE HANDWRITING. 
+                    Capture exactly what is printed. Do not calculate. 
+                    If line shows '2 @ 1.50 3.00', qty is 2, unitPrice is 1.50, totalPrice is 3.00.
+                    If it only shows '10.00', totalPrice is 10.00, leave others empty.
+                    JSON: {"date":"YYYY-MM-DD","items":[{"itemNo":"","desc":"","qty":"","unitPrice":"","totalPrice":"","cat":""}]}`;
+                    
+                    const result = await model.generateContent([prompt, { inlineData: { data: reader.result.split(',')[1], mimeType: "image/jpeg" } }]);
                     const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
 
-                    document.getElementById('store').value = data.store || "";
-                    document.getElementById('date').value = data.date || "";
+                    document.getElementById('date').value = data.date;
+                    const list = document.getElementById('itemList');
+                    list.innerHTML = "";
+                    capturedCount = data.items.length;
                     
-                    const listEl = document.getElementById('itemList');
-                    listEl.innerHTML = '<label>VERIFY PRINTED DATA</label>';
-                    
-                    capturedItemsCount = data.items.length;
-                    data.items.forEach((item, i) => {
-                        listEl.innerHTML += `
-                            <div class="item">
-                                <div class="item-grid">
-                                    <div><label>SKU</label><input type="text" value="${item.itemNo}" id="no-${i}"></div>
-                                    <div><label>DESC</label><input type="text" value="${item.desc}" id="desc-${i}"></div>
-                                </div>
-                                <label>PRICE</label>
-                                <input type="number" step="0.01" value="${item.price}" id="price-${i}" oninput="updateSubtotal()">
-                            </div>`;
+                    data.items.forEach((it, i) => {
+                        list.innerHTML += `<div class="item-box">
+                            <label>SKU & Description</label>
+                            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:5px;">
+                                <input type="text" value="${it.itemNo}" id="no-${i}">
+                                <input type="text" value="${it.desc}" id="desc-${i}">
+                            </div>
+                            <div class="grid-3">
+                                <div><label>Qty</label><input type="text" value="${it.qty}" id="qty-${i}"></div>
+                                <div><label>Unit $</label><input type="text" value="${it.unitPrice}" id="uPrice-${i}"></div>
+                                <div><label>Total $</label><input type="text" value="${it.totalPrice}" id="tPrice-${i}"></div>
+                            </div>
+                            <label>Category</label><input type="text" value="${it.cat || 'Materials'}" id="cat-${i}">
+                        </div>`;
                     });
-
-                    updateSubtotal();
                     document.getElementById('editor').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ DONE";
-                } catch (err) {
-                    document.getElementById('status').innerText = "❌ FAILED";
-                    alert("Error: " + err.message);
-                }
+                    document.getElementById('status').innerText = "✅ SCAN COMPLETE";
+                } catch (err) { alert("Scan Failed: " + err.message); }
             };
             reader.readAsDataURL(file);
         };
 
         window.sync = async () => {
+            const currentPay = document.getElementById('pay').value;
             const url = localStorage.getItem('script_url');
+            if (!url) return alert("Missing Script URL!");
+
+            // Save Payment History
+            if (currentPay) {
+                let history = JSON.parse(localStorage.getItem('pay_history') || '[]');
+                history = [currentPay, ...history.filter(h => h !== currentPay)].slice(0, 3);
+                localStorage.setItem('pay_history', JSON.stringify(history));
+            }
+
             const items = [];
-            for (let i = 0; i < capturedItemsCount; i++) {
+            for(let i=0; i<capturedCount; i++) {
                 items.push({
                     itemNo: document.getElementById(`no-${i}`).value,
                     desc: document.getElementById(`desc-${i}`).value,
-                    price: document.getElementById(`price-${i}`).value
+                    qty: document.getElementById(`qty-${i}`).value,
+                    unitPrice: document.getElementById(`uPrice-${i}`).value,
+                    totalPrice: document.getElementById(`tPrice-${i}`).value,
+                    category: document.getElementById(`cat-${i}`).value
                 });
             }
 
             const payload = {
-                store: document.getElementById('store').value,
                 date: document.getElementById('date').value,
+                paymentType: currentPay,
+                rebateNo: document.getElementById('rebNo').value,
+                rebateDesc: document.getElementById('rebDesc').value,
                 items: items
             };
 
-            try {
-                await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-                alert("SYNCED!");
-                location.reload();
-            } catch (err) {
-                alert("Sync Failed!");
-            }
+            document.getElementById('status').innerText = "🚀 SYNCING...";
+            await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+            alert("Synced successfully!"); location.reload();
         };
     </script>
 </body>
