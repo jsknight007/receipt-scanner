@@ -3,23 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Lite v8.7</title>
+    <title>Ledger Lite v8.8</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
         :root { --accent: #6366f1; --bg: #f8fafc; --border: #e2e8f0; }
         * { box-sizing: border-box; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); padding: 15px; max-width: 500px; margin: auto; overflow-x: hidden; }
-        
+        body { font-family: system-ui, sans-serif; background: var(--bg); padding: 15px; max-width: 500px; margin: auto; overflow-x: hidden; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 12px; border: 1px solid var(--border); width: 100%; }
-        .btn { display: block; width: 100%; padding: 16px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; font-size: 1rem; }
+        .btn { display: block; width: 100%; padding: 16px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; }
         .primary { background: var(--accent); color: white; }
         .success { background: #10b981; color: white; margin-top: 10px; }
-        .config-btn { background: none; border: 1px solid #cbd5e1; color: #64748b; font-size: 0.7rem; padding: 8px; margin-bottom: 10px; width: auto; }
-        
-        input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; display: block; }
-        label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; margin-top: 8px; letter-spacing: 0.05em; }
-        
-        #status { text-align: center; font-size: 0.85rem; color: var(--accent); margin: 10px 0; font-weight: 600; }
+        .config-btn { background: none; border: 1px solid #cbd5e1; color: #64748b; font-size: 0.7rem; padding: 8px; margin-bottom: 10px; }
+        input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; }
+        label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; margin-top: 8px; }
         .item-box { border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 15px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -28,28 +24,27 @@
 <body>
 
     <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span style="font-weight:900; font-size:0.9rem;">LEDGER LITE v8.7</span>
+        <span style="font-weight:900; font-size:0.9rem;">LEDGER LITE v8.8</span>
         <button class="config-btn" onclick="document.getElementById('config').style.display='block'">⚙️ SETTINGS</button>
     </div>
 
     <div id="config" class="card" style="display:none;">
         <label>Gemini API Key</label><input type="password" id="key">
         <label>Apps Script URL</label><input type="text" id="url">
-        <button class="btn primary" onclick="saveConfig()">SAVE & REFRESH</button>
+        <button class="btn primary" onclick="localStorage.setItem('gemini_key', document.getElementById('key').value); localStorage.setItem('script_url', document.getElementById('url').value); location.reload();">SAVE</button>
     </div>
 
     <div class="card">
         <label for="fileIn" class="btn primary">📷 SCAN RECEIPT</label>
         <input type="file" id="fileIn" accept="image/*" capture="environment" style="display:none">
-        <div id="status">READY</div>
+        <div id="status" style="text-align:center; font-size:0.8rem; margin-top:10px; color:var(--accent);">READY</div>
     </div>
 
     <div id="editor" style="display:none;">
         <div class="card">
             <label>Receipt Date</label><input type="date" id="date">
-            
             <label>Payment Type (Global)</label>
-            <input type="text" id="pay" list="payHistory" placeholder="e.g. Visa 1234">
+            <input type="text" id="pay" list="payHistory" placeholder="Select or type...">
             <datalist id="payHistory"></datalist>
 
             <div class="grid-2">
@@ -66,7 +61,6 @@
         import { GoogleGenerativeAI } from "@google/generative-ai";
         let capturedCount = 0;
 
-        // Initialize Config and History
         document.getElementById('key').value = localStorage.getItem('gemini_key') || '';
         document.getElementById('url').value = localStorage.getItem('script_url') || '';
         
@@ -76,28 +70,18 @@
         };
         updateHistoryUI();
 
-        window.saveConfig = () => {
-            localStorage.setItem('gemini_key', document.getElementById('key').value);
-            localStorage.setItem('script_url', document.getElementById('url').value);
-            location.reload();
-        };
-
         document.getElementById('fileIn').onchange = async (e) => {
             const file = e.target.files[0]; if (!file) return;
-            document.getElementById('status').innerText = "⏳ CAPTURING PRINTED DATA...";
+            document.getElementById('status').innerText = "⏳ CAPTURING DATA...";
             const reader = new FileReader();
             reader.onloadend = async () => {
                 try {
-                    const apiKey = localStorage.getItem('gemini_key');
-                    if (!apiKey) throw new Error("Missing API Key");
-                    
-                    const genAI = new GoogleGenerativeAI(apiKey);
+                    const genAI = new GoogleGenerativeAI(localStorage.getItem('gemini_key'));
                     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
                     
-                    const prompt = `ACT AS OCR. EXTRACT MACHINE-PRINTED DATA ONLY. IGNORE HANDWRITING. 
-                    Capture exactly what is printed. Do not calculate. 
-                    If line shows '2 @ 1.50 3.00', qty is 2, unitPrice is 1.50, totalPrice is 3.00.
-                    If it only shows '10.00', totalPrice is 10.00, leave others empty.
+                    const prompt = `OCR RAW DATA ONLY. IGNORE HANDWRITING. 
+                    - If a line only shows one price (total), set 'totalPrice' and 'unitPrice' to that value, and 'qty' to 1.
+                    - If it shows a multiplier (e.g. 2 @ 1.50 3.00), capture qty=2, unitPrice=1.50, totalPrice=3.00.
                     JSON: {"date":"YYYY-MM-DD","items":[{"itemNo":"","desc":"","qty":"","unitPrice":"","totalPrice":"","cat":""}]}`;
                     
                     const result = await model.generateContent([prompt, { inlineData: { data: reader.result.split(',')[1], mimeType: "image/jpeg" } }]);
@@ -109,6 +93,11 @@
                     capturedCount = data.items.length;
                     
                     data.items.forEach((it, i) => {
+                        // JavaScript Fallback: If AI misses the "Assume 1" instruction
+                        const displayQty = it.qty || "1";
+                        const displayTotal = it.totalPrice || "";
+                        const displayUnit = it.unitPrice || displayTotal;
+
                         list.innerHTML += `<div class="item-box">
                             <label>SKU & Description</label>
                             <div style="display:grid; grid-template-columns: 1fr 2fr; gap:5px;">
@@ -116,26 +105,22 @@
                                 <input type="text" value="${it.desc}" id="desc-${i}">
                             </div>
                             <div class="grid-3">
-                                <div><label>Qty</label><input type="text" value="${it.qty}" id="qty-${i}"></div>
-                                <div><label>Unit $</label><input type="text" value="${it.unitPrice}" id="uPrice-${i}"></div>
-                                <div><label>Total $</label><input type="text" value="${it.totalPrice}" id="tPrice-${i}"></div>
+                                <div><label>Qty</label><input type="text" value="${displayQty}" id="qty-${i}"></div>
+                                <div><label>Unit $</label><input type="text" value="${displayUnit}" id="uPrice-${i}"></div>
+                                <div><label>Total $</label><input type="text" value="${displayTotal}" id="tPrice-${i}"></div>
                             </div>
                             <label>Category</label><input type="text" value="${it.cat || 'Materials'}" id="cat-${i}">
                         </div>`;
                     });
                     document.getElementById('editor').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ SCAN COMPLETE";
-                } catch (err) { alert("Scan Failed: " + err.message); }
+                    document.getElementById('status').innerText = "✅ DONE";
+                } catch (err) { alert(err.message); }
             };
             reader.readAsDataURL(file);
         };
 
         window.sync = async () => {
             const currentPay = document.getElementById('pay').value;
-            const url = localStorage.getItem('script_url');
-            if (!url) return alert("Missing Script URL!");
-
-            // Save Payment History
             if (currentPay) {
                 let history = JSON.parse(localStorage.getItem('pay_history') || '[]');
                 history = [currentPay, ...history.filter(h => h !== currentPay)].slice(0, 3);
@@ -162,9 +147,8 @@
                 items: items
             };
 
-            document.getElementById('status').innerText = "🚀 SYNCING...";
-            await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-            alert("Synced successfully!"); location.reload();
+            await fetch(localStorage.getItem('script_url'), { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+            alert("Synced!"); location.reload();
         };
     </script>
 </body>
