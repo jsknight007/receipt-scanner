@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ledger Lite v8.8</title>
+    <title>Ledger Lite v9.1</title>
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
         :root { --accent: #6366f1; --bg: #f8fafc; --border: #e2e8f0; }
@@ -24,7 +24,7 @@
 <body>
 
     <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span style="font-weight:900; font-size:0.9rem;">LEDGER LITE v8.8</span>
+        <span style="font-weight:900; font-size:0.9rem;">LEDGER LITE v9.1</span>
         <button class="config-btn" onclick="document.getElementById('config').style.display='block'">⚙️ SETTINGS</button>
     </div>
 
@@ -42,7 +42,11 @@
 
     <div id="editor" style="display:none;">
         <div class="card">
-            <label>Receipt Date</label><input type="date" id="date">
+            <div class="grid-2">
+                <div><label>Date</label><input type="date" id="date"></div>
+                <div><label>Store</label><input type="text" id="store"></div>
+            </div>
+            
             <label>Payment Type (Global)</label>
             <input type="text" id="pay" list="payHistory" placeholder="Select or type...">
             <datalist id="payHistory"></datalist>
@@ -79,21 +83,22 @@
                     const genAI = new GoogleGenerativeAI(localStorage.getItem('gemini_key'));
                     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
                     
-                    const prompt = `OCR RAW DATA ONLY. IGNORE HANDWRITING. 
-                    - If a line only shows one price (total), set 'totalPrice' and 'unitPrice' to that value, and 'qty' to 1.
-                    - If it shows a multiplier (e.g. 2 @ 1.50 3.00), capture qty=2, unitPrice=1.50, totalPrice=3.00.
-                    JSON: {"date":"YYYY-MM-DD","items":[{"itemNo":"","desc":"","qty":"","unitPrice":"","totalPrice":"","cat":""}]}`;
+                    const prompt = `ACT AS OCR. EXTRACT MACHINE-PRINTED DATA ONLY. IGNORE HANDWRITING. 
+                    - Extract the Store Name from the top of the receipt.
+                    - DO NOT guess categories.
+                    - If a line only shows one price, set 'totalPrice' and 'unitPrice' to that value, and 'qty' to 1.
+                    JSON: {"store":"","date":"YYYY-MM-DD","items":[{"itemNo":"","desc":"","qty":"","unitPrice":"","totalPrice":""}]}`;
                     
                     const result = await model.generateContent([prompt, { inlineData: { data: reader.result.split(',')[1], mimeType: "image/jpeg" } }]);
                     const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
 
                     document.getElementById('date').value = data.date;
+                    document.getElementById('store').value = data.store;
                     const list = document.getElementById('itemList');
                     list.innerHTML = "";
                     capturedCount = data.items.length;
                     
                     data.items.forEach((it, i) => {
-                        // JavaScript Fallback: If AI misses the "Assume 1" instruction
                         const displayQty = it.qty || "1";
                         const displayTotal = it.totalPrice || "";
                         const displayUnit = it.unitPrice || displayTotal;
@@ -109,11 +114,11 @@
                                 <div><label>Unit $</label><input type="text" value="${displayUnit}" id="uPrice-${i}"></div>
                                 <div><label>Total $</label><input type="text" value="${displayTotal}" id="tPrice-${i}"></div>
                             </div>
-                            <label>Category</label><input type="text" value="${it.cat || 'Materials'}" id="cat-${i}">
+                            <label>Category (Manual)</label><input type="text" value="" id="cat-${i}" placeholder="Enter category...">
                         </div>`;
                     });
                     document.getElementById('editor').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ DONE";
+                    document.getElementById('status').innerText = "✅ SCAN COMPLETE";
                 } catch (err) { alert(err.message); }
             };
             reader.readAsDataURL(file);
@@ -141,6 +146,7 @@
 
             const payload = {
                 date: document.getElementById('date').value,
+                store: document.getElementById('store').value,
                 paymentType: currentPay,
                 rebateNo: document.getElementById('rebNo').value,
                 rebateDesc: document.getElementById('rebDesc').value,
