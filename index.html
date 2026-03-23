@@ -8,32 +8,22 @@
     <meta name="theme-color" content="#6366f1">
     <title>Receipt Scanner Pro</title>
     
-    <link rel="manifest" href='data:application/manifest+json,{"name":"Receipt Scanner Pro","short_name":"ScannerPro","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#6366f1","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/2830/2830312.png","sizes":"512x512","type":"image/png"}]}'>
+    <link rel="manifest" href='data:application/manifest+json,{"name":"Receipt Scanner Pro","short_name":"ScannerPro","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#6366f1","icons":[{"src":"https://img.icons8.com/fluency/512/receipt.png","sizes":"512x512","type":"image/png"}]}'>
 
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
     <style>
         :root { --accent: #6366f1; --bg: #f8fafc; --border: #e2e8f0; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); padding: 15px; max-width: 500px; margin: auto; overflow-x: hidden; }
-        
-        /* App Header */
+        body { font-family: system-ui, sans-serif; background: var(--bg); padding: 15px; max-width: 500px; margin: auto; }
         .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .app-title { font-weight: 900; font-size: 1.1rem; color: #1e293b; letter-spacing: -0.02em; }
-        
-        .card { background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 12px; border: 1px solid var(--border); width: 100%; }
-        .btn { display: block; width: 100%; padding: 18px; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; text-align: center; transition: opacity 0.2s; }
-        .btn:active { opacity: 0.8; }
-        .primary { background: var(--accent); color: white; box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.39); }
+        .app-title { font-weight: 900; font-size: 1.1rem; color: #1e293b; }
+        .card { background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 12px; border: 1px solid var(--border); }
+        .btn { display: block; width: 100%; padding: 18px; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; text-align: center; }
+        .primary { background: var(--accent); color: white; }
         .success { background: #10b981; color: white; margin-top: 10px; }
-        .config-btn { background: #f1f5f9; border: none; color: #64748b; font-size: 0.75rem; padding: 8px 12px; border-radius: 8px; font-weight: 600; }
-        
-        input { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; background: #fff; color: #1e293b; }
-        input:focus { outline: 2px solid var(--accent); border-color: transparent; }
-        label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; display: block; margin-top: 10px; letter-spacing: 0.05em; }
-        
-        #status { text-align: center; font-size: 0.85rem; color: var(--accent); margin: 10px 0; font-weight: 700; }
+        input { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; }
+        label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; display: block; margin-top: 10px; }
         .item-box { border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px; }
-        .item-box:last-child { border-bottom: none; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     </style>
@@ -42,19 +32,19 @@
 
     <div class="app-header">
         <span class="app-title">RECEIPT SCANNER PRO</span>
-        <button class="config-btn" onclick="document.getElementById('config').toggleAttribute('hidden')">SETTINGS</button>
+        <button onclick="document.getElementById('config').toggleAttribute('hidden')" style="background:#f1f5f9; border:none; padding:8px; border-radius:8px; font-size:0.7rem;">SETTINGS</button>
     </div>
 
     <div id="config" class="card" hidden>
         <label>Gemini API Key</label><input type="password" id="key">
         <label>Apps Script URL</label><input type="text" id="url">
-        <button class="btn primary" onclick="saveConfig()">SAVE CONFIG</button>
+        <button class="btn primary" onclick="localStorage.setItem('gemini_key', document.getElementById('key').value); localStorage.setItem('script_url', document.getElementById('url').value); location.reload();">SAVE</button>
     </div>
 
     <div class="card">
-        <label for="fileIn" class="btn primary">📷 SCAN NEW RECEIPT</label>
+        <label for="fileIn" class="btn primary">📷 SCAN RECEIPT</label>
         <input type="file" id="fileIn" accept="image/*" capture="environment" style="display:none">
-        <div id="status">READY</div>
+        <div id="status" style="text-align:center; font-size:0.8rem; margin-top:10px; color:var(--accent);">READY</div>
     </div>
 
     <div id="editor" style="display:none;">
@@ -63,25 +53,19 @@
                 <div><label>Date</label><input type="date" id="date"></div>
                 <div><label>Store</label><input type="text" id="store"></div>
             </div>
-            
-            <label>Payment Method</label>
-            <input type="text" id="pay" list="payHistory" placeholder="Tap to select...">
-            <datalist id="payHistory"></datalist>
-
+            <label>Payment Method</label><input type="text" id="pay" list="payHistory"><datalist id="payHistory"></datalist>
             <div class="grid-2">
                 <div><label>Rebate ID</label><input type="text" id="rebNo"></div>
                 <div><label>Description</label><input type="text" id="rebDesc"></div>
             </div>
         </div>
-        
         <div id="itemList" class="card"></div>
-        <button class="btn success" onclick="sync()">🚀 SYNC TO MASTER LOG</button>
+        <button class="btn success" onclick="sync()">🚀 SYNC TO SHEET</button>
     </div>
 
     <script type="module">
         import { GoogleGenerativeAI } from "@google/generative-ai";
         let capturedCount = 0;
-
         document.getElementById('key').value = localStorage.getItem('gemini_key') || '';
         document.getElementById('url').value = localStorage.getItem('script_url') || '';
         
@@ -91,96 +75,55 @@
         };
         updateHistoryUI();
 
-        window.saveConfig = () => {
-            localStorage.setItem('gemini_key', document.getElementById('key').value);
-            localStorage.setItem('script_url', document.getElementById('url').value);
-            location.reload();
-        };
-
         document.getElementById('fileIn').onchange = async (e) => {
             const file = e.target.files[0]; if (!file) return;
-            document.getElementById('status').innerText = "⏳ ANALYZING RECEIPT...";
+            document.getElementById('status').innerText = "⏳ SCANNING...";
             const reader = new FileReader();
             reader.onloadend = async () => {
                 try {
                     const genAI = new GoogleGenerativeAI(localStorage.getItem('gemini_key'));
                     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
-                    
-                    const prompt = `ACT AS OCR. EXTRACT MACHINE-PRINTED DATA ONLY. 
-                    - Extract Store Name. 
-                    - DO NOT guess categories.
-                    - If line only shows one price, set 'totalPrice' and 'unitPrice' to that value, and 'qty' to 1.
-                    JSON: {"store":"","date":"YYYY-MM-DD","items":[{"itemNo":"","desc":"","qty":"","unitPrice":"","totalPrice":""}]}`;
-                    
+                    const prompt = `ACT AS OCR. EXTRACT MACHINE-PRINTED DATA ONLY. JSON: {"store":"","date":"YYYY-MM-DD","items":[{"itemNo":"","desc":"","qty":"","unitPrice":"","totalPrice":""}]}`;
                     const result = await model.generateContent([prompt, { inlineData: { data: reader.result.split(',')[1], mimeType: "image/jpeg" } }]);
                     const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
-
                     document.getElementById('date').value = data.date;
                     document.getElementById('store').value = data.store;
                     const list = document.getElementById('itemList');
                     list.innerHTML = "";
                     capturedCount = data.items.length;
-                    
                     data.items.forEach((it, i) => {
                         const dQty = it.qty || "1";
                         const dTotal = it.totalPrice || "";
                         const dUnit = it.unitPrice || dTotal;
-
                         list.innerHTML += `<div class="item-box">
                             <label>Item ${i+1}</label>
-                            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:8px;">
-                                <input type="text" value="${it.itemNo}" id="no-${i}" placeholder="SKU">
-                                <input type="text" value="${it.desc}" id="desc-${i}" placeholder="Description">
-                            </div>
-                            <div class="grid-3">
-                                <div><label>Qty</label><input type="text" value="${dQty}" id="qty-${i}"></div>
-                                <div><label>Unit $</label><input type="text" value="${dUnit}" id="uPrice-${i}"></div>
-                                <div><label>Total $</label><input type="text" value="${dTotal}" id="tPrice-${i}"></div>
-                            </div>
-                            <label>Category (Manual)</label><input type="text" value="" id="cat-${i}" placeholder="e.g. Tools, Lumber...">
+                            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:5px;"><input type="text" value="${it.itemNo}" id="no-${i}"><input type="text" value="${it.desc}" id="desc-${i}"></div>
+                            <div class="grid-3"><div><label>Qty</label><input type="text" value="${dQty}" id="qty-${i}"></div><div><label>Unit $</label><input type="text" value="${dUnit}" id="uPrice-${i}"></div><div><label>Total $</label><input type="text" value="${dTotal}" id="tPrice-${i}"></div></div>
+                            <label>Category</label><input type="text" value="" id="cat-${i}">
                         </div>`;
                     });
                     document.getElementById('editor').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ SCAN READY";
-                    window.scrollTo({ top: document.getElementById('editor').offsetTop, behavior: 'smooth' });
-                } catch (err) { alert("Scan Error: " + err.message); }
+                    document.getElementById('status').innerText = "✅ READY";
+                } catch (err) { alert(err.message); }
             };
             reader.readAsDataURL(file);
         };
 
         window.sync = async () => {
-            const currentPay = document.getElementById('pay').value;
-            if (currentPay) {
-                let history = JSON.parse(localStorage.getItem('pay_history') || '[]');
-                history = [currentPay, ...history.filter(h => h !== currentPay)].slice(0, 3);
-                localStorage.setItem('pay_history', JSON.stringify(history));
-            }
-
             const items = [];
             for(let i=0; i<capturedCount; i++) {
-                items.push({
-                    itemNo: document.getElementById(`no-${i}`).value,
-                    desc: document.getElementById(`desc-${i}`).value,
-                    qty: document.getElementById(`qty-${i}`).value,
-                    unitPrice: document.getElementById(`uPrice-${i}`).value,
-                    totalPrice: document.getElementById(`tPrice-${i}`).value,
-                    category: document.getElementById(`cat-${i}`).value
-                });
+                items.push({ itemNo: document.getElementById(`no-${i}`).value, desc: document.getElementById(`desc-${i}`).value, qty: document.getElementById(`qty-${i}`).value, unitPrice: document.getElementById(`uPrice-${i}`).value, totalPrice: document.getElementById(`tPrice-${i}`).value, category: document.getElementById(`cat-${i}`).value });
             }
-
-            const payload = {
-                date: document.getElementById('date').value,
-                store: document.getElementById('store').value,
-                paymentType: currentPay,
-                rebateNo: document.getElementById('rebNo').value,
-                rebateDesc: document.getElementById('rebDesc').value,
-                items: items
-            };
-
-            document.getElementById('status').innerText = "🚀 SYNCING TO CLOUD...";
+            const payload = { date: document.getElementById('date').value, store: document.getElementById('store').value, paymentType: document.getElementById('pay').value, rebateNo: document.getElementById('rebNo').value, rebateDesc: document.getElementById('rebDesc').value, items: items };
+            document.getElementById('status').innerText = "🚀 SYNCING...";
             await fetch(localStorage.getItem('script_url'), { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-            alert("Success! Data pushed to Google Sheet."); location.reload();
+            alert("Success!"); location.reload();
         };
+
+        // Service Worker Registration for PWA "App" feel
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('data:text/javascript,self.addEventListener("fetch", (e) => {});');
+        }
     </script>
 </body>
 </html>
