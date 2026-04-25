@@ -16,23 +16,18 @@
         :root { --accent: #6366f1; --bg: #f8fafc; --border: #e2e8f0; --text: #1e293b; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 15px; max-width: 500px; margin: auto; }
-        
         .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-top: 10px; }
         .app-title { font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em; }
-        
         .card { background: white; padding: 20px; border-radius: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid var(--border); }
         .btn { display: block; width: 100%; padding: 18px; border: none; border-radius: 14px; font-weight: 700; cursor: pointer; text-align: center; transition: transform 0.1s; }
         .btn:active { transform: scale(0.98); }
-        .primary { background: var(--accent); color: white; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3); }
+        .primary { background: var(--accent); color: white; }
         .success { background: #10b981; color: white; margin-top: 15px; }
         .config-btn { background: #f1f5f9; border: none; color: #64748b; font-size: 0.75rem; padding: 8px 12px; border-radius: 8px; font-weight: 600; }
-        
-        input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid var(--border); border-radius: 12px; font-size: 1rem; background: #fff; }
-        label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; display: block; margin-top: 12px; letter-spacing: 0.05em; }
-        
-        #status { text-align: center; font-size: 0.85rem; color: var(--accent); margin: 12px 0; font-weight: 700; min-height: 1.2em; }
+        input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid var(--border); border-radius: 12px; font-size: 1rem; }
+        label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; display: block; margin-top: 12px; }
+        #status { text-align: center; font-size: 0.85rem; color: var(--accent); margin: 12px 0; font-weight: 700; }
         .item-box { border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px; }
-        .item-box:last-child { border-bottom: none; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     </style>
@@ -62,17 +57,12 @@
                 <div><label>Date</label><input type="date" id="date"></div>
                 <div><label>Store</label><input type="text" id="store"></div>
             </div>
-            
-            <label>Payment Method</label>
-            <input type="text" id="pay" list="payHistory" placeholder="Select payment...">
-            <datalist id="payHistory"></datalist>
-
+            <label>Payment Method</label><input type="text" id="pay" list="payHistory" placeholder="Select payment..."><datalist id="payHistory"></datalist>
             <div class="grid-2">
                 <div><label>Rebate ID</label><input type="text" id="rebNo"></div>
                 <div><label>Description</label><input type="text" id="rebDesc"></div>
             </div>
         </div>
-        
         <div id="itemList" class="card"></div>
         <button class="btn success" onclick="sync()">🚀 SYNC TO MASTER LOG</button>
     </div>
@@ -81,82 +71,67 @@
         import { GoogleGenerativeAI } from "@google/generative-ai";
         let capturedCount = 0;
 
-        // Configuration handling
         document.getElementById('key').value = localStorage.getItem('gemini_key') || '';
         document.getElementById('url').value = localStorage.getItem('script_url') || '';
         
-        const updateHistoryUI = () => {
-            const history = JSON.parse(localStorage.getItem('pay_history') || '[]');
-            document.getElementById('payHistory').innerHTML = history.map(h => `<option value="${h}">`).join('');
-        };
-        updateHistoryUI();
-
         window.saveConfig = () => {
             localStorage.setItem('gemini_key', document.getElementById('key').value);
             localStorage.setItem('script_url', document.getElementById('url').value);
             location.reload();
         };
 
-        // Main OCR Logic
         document.getElementById('fileIn').onchange = async (e) => {
             const file = e.target.files[0]; if (!file) return;
-            const status = document.getElementById('status');
-            status.innerText = "⏳ ANALYZING RECEIPT...";
-            
+            document.getElementById('status').innerText = "⏳ ANALYZING...";
             const reader = new FileReader();
             reader.onloadend = async () => {
                 try {
                     const genAI = new GoogleGenerativeAI(localStorage.getItem('gemini_key'));
-                    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    // Reverted to stable Vision model
+                    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
                     
-                    const prompt = `ACT AS OCR. EXTRACT MACHINE-PRINTED DATA ONLY. JSON: {"store":"","date":"YYYY-MM-DD","items":[{"itemNo":"","desc":"","qty":"","unitPrice":"","totalPrice":""}]}`;
+                    const prompt = "Extract receipt data to JSON: {'store':'','date':'YYYY-MM-DD','items':[{'itemNo':'','desc':'','qty':'','unitPrice':'','totalPrice':''}]}";
                     
                     const result = await model.generateContent([prompt, { inlineData: { data: reader.result.split(',')[1], mimeType: "image/jpeg" } }]);
                     const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
 
                     document.getElementById('date').value = data.date;
                     document.getElementById('store').value = data.store;
-                    
                     const list = document.getElementById('itemList');
                     list.innerHTML = "";
                     capturedCount = data.items.length;
                     
                     data.items.forEach((it, i) => {
-                        let qtyVal = it.qty || "1";
-                        let totalVal = it.totalPrice || "";
-                        let unitVal = it.unitPrice || "";
+                        let qty = it.qty || "1";
+                        let total = it.totalPrice || "";
+                        let unit = it.unitPrice || "";
                         
-                        // Auto-fill unit price if missing and quantity is 1
-                        if ((qtyVal === "1" || qtyVal === "") && unitVal === "") {
-                            unitVal = totalVal;
+                        // NEW UI LOGIC: If qty is 1 and unit price is missing, use total price
+                        if ((qty == "1" || qty == "") && unit == "") {
+                            unit = total;
                         }
 
                         list.innerHTML += `<div class="item-box">
                             <label>Item ${i+1}</label>
                             <div style="display:grid; grid-template-columns: 1fr 2fr; gap:8px;">
-                                <input type="text" value="${it.itemNo}" id="no-${i}" placeholder="SKU/ID">
+                                <input type="text" value="${it.itemNo}" id="no-${i}" placeholder="SKU">
                                 <input type="text" value="${it.desc}" id="desc-${i}" placeholder="Description">
                             </div>
                             <div class="grid-3">
-                                <div><label>Qty</label><input type="text" value="${qtyVal}" id="qty-${i}"></div>
-                                <div><label>Unit $</label><input type="text" value="${unitVal}" id="uPrice-${i}"></div>
-                                <div><label>Total $</label><input type="text" value="${totalVal}" id="tPrice-${i}"></div>
+                                <div><label>Qty</label><input type="text" value="${qty}" id="qty-${i}"></div>
+                                <div><label>Unit $</label><input type="text" value="${unit}" id="uPrice-${i}"></div>
+                                <div><label>Total $</label><input type="text" value="${total}" id="tPrice-${i}"></div>
                             </div>
-                            <label>Category</label><input type="text" value="" id="cat-${i}" placeholder="Category (e.g. Lumber)">
+                            <label>Category</label><input type="text" value="" id="cat-${i}" placeholder="Category">
                         </div>`;
                     });
-                    
                     document.getElementById('editor').style.display = 'block';
-                    status.innerText = "✅ SCAN COMPLETE";
-                } catch (err) { 
-                    status.innerText = "❌ SCAN ERROR";
-                    alert("Error: " + err.message); 
-                }
+                    document.getElementById('status').innerText = "✅ SCAN READY";
+                } catch (err) { alert("Scan Error: " + err.message); }
             };
             reader.readAsDataURL(file);
         };
 
-        // Sync Logic
         window.sync = async () => {
             const items = [];
             for(let i=0; i<capturedCount; i++) {
@@ -169,39 +144,20 @@
                     category: document.getElementById(`cat-${i}`).value
                 });
             }
-
             const payload = {
                 date: document.getElementById('date').value,
                 store: document.getElementById('store').value,
                 paymentType: document.getElementById('pay').value,
-                rebateNo: document.getElementById('rebNo').value,
-                rebateDesc: document.getElementById('rebDesc').value,
                 items: items
             };
-
-            document.getElementById('status').innerText = "🚀 SYNCING TO SHEET...";
-            try {
-                await fetch(localStorage.getItem('script_url'), { 
-                    method: 'POST', 
-                    mode: 'no-cors', 
-                    body: JSON.stringify(payload) 
-                });
-                alert("Receipt Synced Successfully!"); 
-                location.reload();
-            } catch (err) {
-                alert("Sync Failed: " + err.message);
-                document.getElementById('status').innerText = "❌ SYNC FAILED";
-            }
+            document.getElementById('status').innerText = "🚀 SYNCING...";
+            await fetch(localStorage.getItem('script_url'), { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+            alert("Success!"); location.reload();
         };
     </script>
-
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('sw.js')
-            .then(reg => console.log('SW Registered'))
-            .catch(err => console.log('SW Error:', err));
-        });
+        navigator.serviceWorker.register('sw.js').then(() => console.log("SW Registered"));
       }
     </script>
 </body>
