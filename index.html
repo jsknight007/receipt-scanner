@@ -19,8 +19,7 @@
         .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-top: 10px; }
         .app-title { font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em; }
         .card { background: white; padding: 20px; border-radius: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid var(--border); }
-        .btn { display: block; width: 100%; padding: 18px; border: none; border-radius: 14px; font-weight: 700; cursor: pointer; text-align: center; transition: transform 0.1s; }
-        .btn:active { transform: scale(0.98); }
+        .btn { display: block; width: 100%; padding: 18px; border: none; border-radius: 14px; font-weight: 700; cursor: pointer; text-align: center; }
         .primary { background: var(--accent); color: white; }
         .success { background: #10b981; color: white; margin-top: 15px; }
         .config-btn { background: #f1f5f9; border: none; color: #64748b; font-size: 0.75rem; padding: 8px 12px; border-radius: 8px; font-weight: 600; }
@@ -87,13 +86,14 @@
             reader.onloadend = async () => {
                 try {
                     const genAI = new GoogleGenerativeAI(localStorage.getItem('gemini_key'));
-                    // Reverted to stable Vision model
-                    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+                    // Stable 2.5 Flash model string
+                    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
                     
-                    const prompt = "Extract receipt data to JSON: {'store':'','date':'YYYY-MM-DD','items':[{'itemNo':'','desc':'','qty':'','unitPrice':'','totalPrice':''}]}";
+                    const prompt = "OCR this receipt. Return JSON: {'store':'','date':'YYYY-MM-DD','items':[{'itemNo':'','desc':'','qty':'','unitPrice':'','totalPrice':''}]}";
                     
                     const result = await model.generateContent([prompt, { inlineData: { data: reader.result.split(',')[1], mimeType: "image/jpeg" } }]);
-                    const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
+                    const text = result.response.text();
+                    const data = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
 
                     document.getElementById('date').value = data.date;
                     document.getElementById('store').value = data.store;
@@ -102,13 +102,13 @@
                     capturedCount = data.items.length;
                     
                     data.items.forEach((it, i) => {
-                        let qty = it.qty || "1";
-                        let total = it.totalPrice || "";
-                        let unit = it.unitPrice || "";
+                        let qVal = it.qty || "1";
+                        let tVal = it.totalPrice || "";
+                        let uVal = it.unitPrice || "";
                         
-                        // NEW UI LOGIC: If qty is 1 and unit price is missing, use total price
-                        if ((qty == "1" || qty == "") && unit == "") {
-                            unit = total;
+                        // UI Logic: Auto-fill Unit Price if Qty is 1 and Unit is blank
+                        if ((qVal === "1" || qVal === "") && uVal === "") {
+                            uVal = tVal;
                         }
 
                         list.innerHTML += `<div class="item-box">
@@ -118,16 +118,19 @@
                                 <input type="text" value="${it.desc}" id="desc-${i}" placeholder="Description">
                             </div>
                             <div class="grid-3">
-                                <div><label>Qty</label><input type="text" value="${qty}" id="qty-${i}"></div>
-                                <div><label>Unit $</label><input type="text" value="${unit}" id="uPrice-${i}"></div>
-                                <div><label>Total $</label><input type="text" value="${total}" id="tPrice-${i}"></div>
+                                <div><label>Qty</label><input type="text" value="${qVal}" id="qty-${i}"></div>
+                                <div><label>Unit $</label><input type="text" value="${uVal}" id="uPrice-${i}"></div>
+                                <div><label>Total $</label><input type="text" value="${tVal}" id="tPrice-${i}"></div>
                             </div>
                             <label>Category</label><input type="text" value="" id="cat-${i}" placeholder="Category">
                         </div>`;
                     });
                     document.getElementById('editor').style.display = 'block';
                     document.getElementById('status').innerText = "✅ SCAN READY";
-                } catch (err) { alert("Scan Error: " + err.message); }
+                } catch (err) { 
+                    document.getElementById('status').innerText = "❌ ERROR";
+                    alert("Error: " + err.message); 
+                }
             };
             reader.readAsDataURL(file);
         };
@@ -154,11 +157,6 @@
             await fetch(localStorage.getItem('script_url'), { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
             alert("Success!"); location.reload();
         };
-    </script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').then(() => console.log("SW Registered"));
-      }
     </script>
 </body>
 </html>
