@@ -86,14 +86,12 @@
             reader.onloadend = async () => {
                 try {
                     const genAI = new GoogleGenerativeAI(localStorage.getItem('gemini_key'));
-                    // Stable 2.5 Flash model string
-                    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
                     
                     const prompt = "OCR this receipt. Return JSON: {'store':'','date':'YYYY-MM-DD','items':[{'itemNo':'','desc':'','qty':'','unitPrice':'','totalPrice':''}]}";
                     
                     const result = await model.generateContent([prompt, { inlineData: { data: reader.result.split(',')[1], mimeType: "image/jpeg" } }]);
-                    const text = result.response.text();
-                    const data = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+                    const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
 
                     document.getElementById('date').value = data.date;
                     document.getElementById('store').value = data.store;
@@ -105,11 +103,7 @@
                         let qVal = it.qty || "1";
                         let tVal = it.totalPrice || "";
                         let uVal = it.unitPrice || "";
-                        
-                        // UI Logic: Auto-fill Unit Price if Qty is 1 and Unit is blank
-                        if ((qVal === "1" || qVal === "") && uVal === "") {
-                            uVal = tVal;
-                        }
+                        if ((qVal === "1" || qVal === "") && uVal === "") { uVal = tVal; }
 
                         list.innerHTML += `<div class="item-box">
                             <label>Item ${i+1}</label>
@@ -127,10 +121,7 @@
                     });
                     document.getElementById('editor').style.display = 'block';
                     document.getElementById('status').innerText = "✅ SCAN READY";
-                } catch (err) { 
-                    document.getElementById('status').innerText = "❌ ERROR";
-                    alert("Error: " + err.message); 
-                }
+                } catch (err) { alert("Scan Error: " + err.message); }
             };
             reader.readAsDataURL(file);
         };
@@ -147,14 +138,23 @@
                     category: document.getElementById(`cat-${i}`).value
                 });
             }
+
+            // EXPLICIT PAYLOAD BUNDLING
             const payload = {
                 date: document.getElementById('date').value,
                 store: document.getElementById('store').value,
                 paymentType: document.getElementById('pay').value,
+                rebateNo: document.getElementById('rebNo').value,
+                rebateDesc: document.getElementById('rebDesc').value,
                 items: items
             };
+
             document.getElementById('status').innerText = "🚀 SYNCING...";
-            await fetch(localStorage.getItem('script_url'), { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+            await fetch(localStorage.getItem('script_url'), { 
+                method: 'POST', 
+                mode: 'no-cors', 
+                body: JSON.stringify(payload) 
+            });
             alert("Success!"); location.reload();
         };
     </script>
