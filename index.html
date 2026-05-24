@@ -86,7 +86,7 @@
             reader.onloadend = async () => {
                 try {
                     const genAI = new GoogleGenerativeAI(localStorage.getItem('gemini_key'));
-                    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
                     
                     const prompt = "OCR this receipt. Return JSON: {'store':'','date':'YYYY-MM-DD','items':[{'itemNo':'','desc':'','qty':'','unitPrice':'','totalPrice':''}]}";
                     
