@@ -7,28 +7,50 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#6366f1">
     <title>Receipt Scanner Pro</title>
-    
+
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="https://img.icons8.com/fluency/192/receipt.png">
 
-    <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } } </script>
+    <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@0.21.0" } } </script>
     <style>
         :root { --accent: #6366f1; --bg: #f8fafc; --border: #e2e8f0; --text: #1e293b; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 15px; max-width: 500px; margin: auto; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); color: var(--text); padding: 15px; max-width: 500px; margin: auto; min-height: 100vh; }
         .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-top: 10px; }
         .app-title { font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em; }
-        .card { background: white; padding: 20px; border-radius: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid var(--border); }
-        .btn { display: block; width: 100%; padding: 18px; border: none; border-radius: 14px; font-weight: 700; cursor: pointer; text-align: center; }
+        .card { background: white; padding: 20px; border-radius: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06); margin-bottom: 15px; border: 1px solid var(--border); }
+        .btn { display: block; width: 100%; padding: 18px; border: none; border-radius: 14px; font-weight: 700; cursor: pointer; text-align: center; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .btn:active { transform: scale(0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .primary { background: var(--accent); color: white; }
         .success { background: #10b981; color: white; margin-top: 15px; }
-        .config-btn { background: #f1f5f9; border: none; color: #64748b; font-size: 0.75rem; padding: 8px 12px; border-radius: 8px; font-weight: 600; }
-        input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid var(--border); border-radius: 12px; font-size: 1rem; }
+        .config-btn { background: #f1f5f9; border: none; color: #64748b; font-size: 0.75rem; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: transform 0.15s ease; }
+        .config-btn:active { transform: scale(0.95); }
+        input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid var(--border); border-radius: 12px; font-size: 1rem; box-sizing: border-box; }
         label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; display: block; margin-top: 12px; }
-        #status { text-align: center; font-size: 0.85rem; color: var(--accent); margin: 12px 0; font-weight: 700; }
-        .item-box { border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px; }
+        .item-box { padding: 16px; margin-bottom: 4px; border-radius: 12px; }
+        .item-box:nth-child(odd) { background: #f8fafc; }
+        .item-box:nth-child(even) { background: #ffffff; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .scan-confirm { text-align: center; padding: 20px 0; }
+        .scan-confirm .checkmark { font-size: 2.5rem; animation: pop-in 0.3s ease; }
+        .scan-confirm .count { font-size: 1.1rem; font-weight: 700; color: #10b981; margin-top: 8px; }
+        .scan-confirm .hint { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; }
+        @keyframes pop-in { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+        .receipt-thumb { width: 80px; height: auto; border-radius: 10px; border: 2px solid var(--border); margin: 12px auto; display: block; }
+
+        .toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+            padding: 12px 24px; border-radius: 50px; font-size: 0.85rem; font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; opacity: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease; white-space: nowrap;
+        }
+        .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.toast-success { background: #e6f4ea; color: #137333; }
+        .toast.toast-error { background: #fce8e6; color: #c5221f; }
+        .toast.toast-info { background: #e8f0fe; color: #1967d2; }
     </style>
 </head>
 <body>
@@ -47,11 +69,12 @@
     <div class="card">
         <label for="fileIn" class="btn primary">📷 SCAN NEW RECEIPT</label>
         <input type="file" id="fileIn" accept="image/*" capture="environment" style="display:none">
-        <div id="status">READY</div>
+        <div id="scanStatus" class="scan-confirm" style="display:none;"></div>
     </div>
 
     <div id="editor" style="display:none;">
         <div class="card">
+            <img id="receiptThumb" class="receipt-thumb" style="display:none;">
             <div class="grid-2">
                 <div><label>Date</label><input type="date" id="date"></div>
                 <div><label>Store</label><input type="text" id="store"></div>
@@ -63,8 +86,11 @@
             </div>
         </div>
         <div id="itemList" class="card"></div>
+        <button class="btn" style="background:#64748b; color:white; margin-top:15px;" onclick="addBlankItem()">+ ADD ITEM</button>
         <button class="btn success" onclick="sync()">🚀 SYNC TO MASTER LOG</button>
     </div>
+
+    <div id="toast" class="toast"></div>
 
     <script type="module">
         import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -72,74 +98,228 @@
 
         document.getElementById('key').value = localStorage.getItem('gemini_key') || '';
         document.getElementById('url').value = localStorage.getItem('script_url') || '';
-        
+
+        if (!localStorage.getItem('script_url')) {
+            document.getElementById('config').removeAttribute('hidden');
+        }
+
+        async function fetchWithRetry(url, opts = {}) {
+            try { return await fetch(url, opts); }
+            catch (e) { await new Promise(r => setTimeout(r, 2000)); return await fetch(url, opts); }
+        }
+
+        function showToast(msg, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = 'toast toast-' + type;
+            requestAnimationFrame(() => { toast.classList.add('visible'); });
+            setTimeout(() => { toast.classList.remove('visible'); }, 3500);
+        }
+
         window.saveConfig = () => {
-            localStorage.setItem('gemini_key', document.getElementById('key').value);
-            localStorage.setItem('script_url', document.getElementById('url').value);
-            location.reload();
+            localStorage.setItem('gemini_key', document.getElementById('key').value.trim());
+            localStorage.setItem('script_url', document.getElementById('url').value.trim());
+            document.getElementById('config').setAttribute('hidden', '');
+            showToast("Config saved!", "success");
         };
 
         document.getElementById('fileIn').onchange = async (e) => {
             const file = e.target.files[0]; if (!file) return;
-            document.getElementById('status').innerText = "⏳ ANALYZING...";
+            const scanStatus = document.getElementById('scanStatus');
+            scanStatus.style.display = 'block';
+            scanStatus.innerHTML = '<div style="color:var(--accent); font-weight:700;">ANALYZING...</div>';
+
             const reader = new FileReader();
             reader.onloadend = async () => {
                 try {
-                    const genAI = new GoogleGenerativeAI(localStorage.getItem('gemini_key'));
-                    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
-                    
-                    const prompt = "OCR this receipt. Return JSON: {'store':'','date':'YYYY-MM-DD','items':[{'itemNo':'','desc':'','qty':'','unitPrice':'','totalPrice':''}]}";
-                    
-                    const result = await model.generateContent([prompt, { inlineData: { data: reader.result.split(',')[1], mimeType: "image/jpeg" } }]);
-                    const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
+                    const apiKey = localStorage.getItem('gemini_key');
+                    if (!apiKey) {
+                        showToast("Set Gemini API key in Settings", "error");
+                        document.getElementById('config').removeAttribute('hidden');
+                        scanStatus.style.display = 'none';
+                        return;
+                    }
+                    const genAI = new GoogleGenerativeAI(apiKey);
+                    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-                    document.getElementById('date').value = data.date;
-                    document.getElementById('store').value = data.store;
+                    const prompt = "OCR this receipt. Return JSON: {\"store\":\"\",\"date\":\"YYYY-MM-DD\",\"items\":[{\"itemNo\":\"\",\"desc\":\"\",\"qty\":\"\",\"unitPrice\":\"\",\"totalPrice\":\"\"}]}. Return ONLY the JSON object, no markdown formatting.";
+
+                    const result = await model.generateContent([prompt, { inlineData: { data: reader.result.split(',')[1], mimeType: "image/jpeg" } }]);
+                    const responseText = result.response.text().trim();
+                    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) {
+                        showToast("Could not extract data from receipt", "error");
+                        scanStatus.style.display = 'none';
+                        return;
+                    }
+
+                    const data = JSON.parse(jsonMatch[0]);
+                    if (!data.items || !Array.isArray(data.items)) {
+                        showToast("No items found in receipt", "error");
+                        scanStatus.style.display = 'none';
+                        return;
+                    }
+
+                    scanStatus.innerHTML = '<div class="checkmark">✓</div><div class="count">' + data.items.length + ' items found</div><div class="hint">Review items below</div>';
+
+                    const thumb = document.getElementById('receiptThumb');
+                    thumb.src = reader.result;
+                    thumb.style.display = 'block';
+
+                    document.getElementById('date').value = data.date || "";
+                    document.getElementById('store').value = data.store || "";
                     const list = document.getElementById('itemList');
-                    list.innerHTML = "";
+                    list.textContent = "";
                     capturedCount = data.items.length;
-                    
+
                     data.items.forEach((it, i) => {
                         let qVal = it.qty || "1";
                         let tVal = it.totalPrice || "";
                         let uVal = it.unitPrice || "";
                         if ((qVal === "1" || qVal === "") && uVal === "") { uVal = tVal; }
 
-                        list.innerHTML += `<div class="item-box">
-                            <label>Item ${i+1}</label>
-                            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:8px;">
-                                <input type="text" value="${it.itemNo}" id="no-${i}" placeholder="SKU">
-                                <input type="text" value="${it.desc}" id="desc-${i}" placeholder="Description">
-                            </div>
-                            <div class="grid-3">
-                                <div><label>Qty</label><input type="text" value="${qVal}" id="qty-${i}"></div>
-                                <div><label>Unit $</label><input type="text" value="${uVal}" id="uPrice-${i}"></div>
-                                <div><label>Total $</label><input type="text" value="${tVal}" id="tPrice-${i}"></div>
-                            </div>
-                            <label>Category</label><input type="text" value="" id="cat-${i}" placeholder="Category">
-                        </div>`;
+                        const itemBox = document.createElement('div');
+                        itemBox.className = 'item-box';
+                        itemBox.id = 'item-box-' + i;
+
+                        const header = document.createElement('div');
+                        header.style.cssText = "display:flex; justify-content:space-between; align-items:center;";
+                        const itemLabel = document.createElement('label');
+                        itemLabel.textContent = "Item " + (i + 1);
+                        const delBtn = document.createElement('button');
+                        delBtn.textContent = "×";
+                        delBtn.style.cssText = "background:#fee2e2; color:#dc2626; border:none; border-radius:8px; width:28px; height:28px; font-size:1.1rem; cursor:pointer; font-weight:bold;";
+                        delBtn.onclick = () => { itemBox.remove(); };
+                        header.appendChild(itemLabel);
+                        header.appendChild(delBtn);
+                        itemBox.appendChild(header);
+
+                        const row1 = document.createElement('div');
+                        row1.style.cssText = "display:grid; grid-template-columns: 1fr 2fr; gap:8px;";
+                        const noInput = createInput("no-" + i, it.itemNo || "", "SKU");
+                        const descInput = createInput("desc-" + i, it.desc || "", "Description");
+                        row1.appendChild(noInput);
+                        row1.appendChild(descInput);
+                        itemBox.appendChild(row1);
+
+                        const row2 = document.createElement('div');
+                        row2.className = 'grid-3';
+                        row2.appendChild(labeledInput("Qty", "qty-" + i, qVal));
+                        row2.appendChild(labeledInput("Unit $", "uPrice-" + i, uVal));
+                        row2.appendChild(labeledInput("Total $", "tPrice-" + i, tVal));
+                        itemBox.appendChild(row2);
+
+                        const catLabel = document.createElement('label');
+                        catLabel.textContent = "Category";
+                        itemBox.appendChild(catLabel);
+                        itemBox.appendChild(createInput("cat-" + i, "", "Category"));
+
+                        list.appendChild(itemBox);
                     });
+
                     document.getElementById('editor').style.display = 'block';
-                    document.getElementById('status').innerText = "✅ SCAN READY";
-                } catch (err) { alert("Scan Error: " + err.message); }
+                } catch (err) {
+                    showToast("Error: " + err.message, "error");
+                    scanStatus.style.display = 'none';
+                }
             };
             reader.readAsDataURL(file);
         };
 
+        function createInput(id, value, placeholder) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = id;
+            input.value = value;
+            input.placeholder = placeholder;
+            return input;
+        }
+
+        function labeledInput(labelText, id, value) {
+            const wrapper = document.createElement('div');
+            const lbl = document.createElement('label');
+            lbl.textContent = labelText;
+            wrapper.appendChild(lbl);
+            wrapper.appendChild(createInput(id, value, ""));
+            return wrapper;
+        }
+
+        window.addBlankItem = () => {
+            const list = document.getElementById('itemList');
+            const i = capturedCount;
+            capturedCount++;
+
+            const itemBox = document.createElement('div');
+            itemBox.className = 'item-box';
+            itemBox.id = 'item-box-' + i;
+
+            const header = document.createElement('div');
+            header.style.cssText = "display:flex; justify-content:space-between; align-items:center;";
+            const itemLabel = document.createElement('label');
+            itemLabel.textContent = "Item " + capturedCount;
+            const delBtn = document.createElement('button');
+            delBtn.textContent = "×";
+            delBtn.style.cssText = "background:#fee2e2; color:#dc2626; border:none; border-radius:8px; width:28px; height:28px; font-size:1.1rem; cursor:pointer; font-weight:bold;";
+            delBtn.onclick = () => { itemBox.remove(); };
+            header.appendChild(itemLabel);
+            header.appendChild(delBtn);
+            itemBox.appendChild(header);
+
+            const row1 = document.createElement('div');
+            row1.style.cssText = "display:grid; grid-template-columns: 1fr 2fr; gap:8px;";
+            row1.appendChild(createInput("no-" + i, "", "SKU"));
+            row1.appendChild(createInput("desc-" + i, "", "Description"));
+            itemBox.appendChild(row1);
+
+            const row2 = document.createElement('div');
+            row2.className = 'grid-3';
+            row2.appendChild(labeledInput("Qty", "qty-" + i, "1"));
+            row2.appendChild(labeledInput("Unit $", "uPrice-" + i, ""));
+            row2.appendChild(labeledInput("Total $", "tPrice-" + i, ""));
+            itemBox.appendChild(row2);
+
+            const catLabel = document.createElement('label');
+            catLabel.textContent = "Category";
+            itemBox.appendChild(catLabel);
+            itemBox.appendChild(createInput("cat-" + i, "", "Category"));
+
+            list.appendChild(itemBox);
+            document.getElementById('editor').style.display = 'block';
+        };
+
         window.sync = async () => {
-            const items = [];
-            for(let i=0; i<capturedCount; i++) {
-                items.push({
-                    itemNo: document.getElementById(`no-${i}`).value,
-                    desc: document.getElementById(`desc-${i}`).value,
-                    qty: document.getElementById(`qty-${i}`).value,
-                    unitPrice: document.getElementById(`uPrice-${i}`).value,
-                    totalPrice: document.getElementById(`tPrice-${i}`).value,
-                    category: document.getElementById(`cat-${i}`).value
-                });
+            const scriptUrl = localStorage.getItem('script_url');
+            if (!scriptUrl) {
+                showToast("Set Apps Script URL in Settings", "error");
+                document.getElementById('config').removeAttribute('hidden');
+                return;
             }
 
-            // EXPLICIT PAYLOAD BUNDLING
+            if (!document.getElementById('date').value) {
+                showToast("Date is required", "error");
+                return;
+            }
+
+            const items = [];
+            const itemBoxes = document.querySelectorAll('.item-box');
+            itemBoxes.forEach((box) => {
+                const inputs = box.querySelectorAll('input');
+                const itemNo = inputs[0] ? inputs[0].value : "";
+                const desc = inputs[1] ? inputs[1].value : "";
+                const qty = inputs[2] ? inputs[2].value : "";
+                const unitPrice = inputs[3] ? inputs[3].value : "";
+                const totalPrice = inputs[4] ? inputs[4].value : "";
+                const category = inputs[5] ? inputs[5].value : "";
+                if (desc.trim()) {
+                    items.push({ itemNo, desc, qty, unitPrice, totalPrice, category });
+                }
+            });
+
+            if (items.length === 0) {
+                showToast("At least one item needs a description", "error");
+                return;
+            }
+
             const payload = {
                 date: document.getElementById('date').value,
                 store: document.getElementById('store').value,
@@ -149,14 +329,30 @@
                 items: items
             };
 
-            document.getElementById('status').innerText = "🚀 SYNCING...";
-            await fetch(localStorage.getItem('script_url'), { 
-                method: 'POST', 
-                mode: 'no-cors', 
-                body: JSON.stringify(payload) 
-            });
-            alert("Success!"); location.reload();
+            showToast("Syncing...", "info");
+
+            try {
+                const response = await fetchWithRetry(scriptUrl, {
+                    method: 'POST',
+                    redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.error) {
+                    showToast("Error: " + result.error, "error");
+                } else {
+                    showToast(result.rowsAdded + " rows synced!", "success");
+                    document.getElementById('editor').style.display = 'none';
+                    document.getElementById('fileIn').value = '';
+                    document.getElementById('scanStatus').style.display = 'none';
+                    document.getElementById('receiptThumb').style.display = 'none';
+                }
+            } catch (err) {
+                showToast("Sync failed: " + err.message, "error");
+            }
         };
     </script>
+    <div style="text-align:center; margin-top:1.5rem; font-size:0.65rem; color:#94a3b8; font-weight:600;">V10.2.0</div>
 </body>
 </html>
