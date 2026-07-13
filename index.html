@@ -140,7 +140,7 @@
                         return;
                     }
                     const genAI = new GoogleGenerativeAI(apiKey);
-                    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+                    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
                     const prompt = "OCR this receipt. Return JSON: {\"store\":\"\",\"date\":\"YYYY-MM-DD\",\"items\":[{\"itemNo\":\"\",\"desc\":\"\",\"qty\":\"\",\"unitPrice\":\"\",\"totalPrice\":\"\"}]}. Return ONLY the JSON object, no markdown formatting.";
 
