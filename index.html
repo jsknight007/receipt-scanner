@@ -332,12 +332,8 @@
             showToast("Syncing...", "info");
 
             try {
-                const response = await fetchWithRetry(scriptUrl, {
-                    method: 'POST',
-                    redirect: 'follow',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(payload)
-                });
+                const syncUrl = scriptUrl + "?action=sync&data=" + encodeURIComponent(JSON.stringify(payload));
+                const response = await fetchWithRetry(syncUrl, { redirect: 'follow' });
                 const result = await response.json();
                 if (result.error) {
                     showToast("Error: " + result.error, "error");
