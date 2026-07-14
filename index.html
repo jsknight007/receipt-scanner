@@ -13,30 +13,32 @@
 
     <script type="importmap"> { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@0.21.0" } } </script>
     <style>
-        :root { --accent: #6366f1; --bg: #f8fafc; --border: #e2e8f0; --text: #1e293b; }
+        :root { --accent: #6366f1; --bg: #f8fafc; --bg-gradient-start: #f8fafc; --bg-gradient-end: #e2e8f0; --border: #e2e8f0; --text: #1e293b; --card-bg: white; --muted: #94a3b8; --item-odd: #f8fafc; --item-even: #ffffff; --input-bg: white; }
+        [data-theme="dark"] { --accent: #818cf8; --bg: #0f172a; --bg-gradient-start: #0f172a; --bg-gradient-end: #1e293b; --border: #334155; --text: #f1f5f9; --card-bg: #1e293b; --muted: #64748b; --item-odd: #1e293b; --item-even: #273549; --input-bg: #334155; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); color: var(--text); padding: 15px; max-width: 500px; margin: auto; min-height: 100vh; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%); color: var(--text); padding: 15px; max-width: 500px; margin: auto; min-height: 100vh; transition: background 0.3s, color 0.3s; }
         .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-top: 10px; }
         .app-title { font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em; }
-        .card { background: white; padding: 20px; border-radius: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06); margin-bottom: 15px; border: 1px solid var(--border); }
+        .header-buttons { display: flex; gap: 8px; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06); margin-bottom: 15px; border: 1px solid var(--border); transition: background 0.3s, border-color 0.3s; }
         .btn { display: block; width: 100%; padding: 18px; border: none; border-radius: 14px; font-weight: 700; cursor: pointer; text-align: center; transition: transform 0.15s ease, box-shadow 0.15s ease; }
         .btn:active { transform: scale(0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .primary { background: var(--accent); color: white; }
         .success { background: #10b981; color: white; margin-top: 15px; }
-        .config-btn { background: #f1f5f9; border: none; color: #64748b; font-size: 0.75rem; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: transform 0.15s ease; }
+        .config-btn { background: var(--item-odd); border: 1px solid var(--border); color: var(--muted); font-size: 0.75rem; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: transform 0.15s ease; }
         .config-btn:active { transform: scale(0.95); }
-        input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid var(--border); border-radius: 12px; font-size: 1rem; box-sizing: border-box; }
-        label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; display: block; margin-top: 12px; }
+        input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid var(--border); border-radius: 12px; font-size: 1rem; box-sizing: border-box; background: var(--input-bg); color: var(--text); transition: background 0.3s, border-color 0.3s, color 0.3s; }
+        label { font-size: 0.7rem; font-weight: 800; color: var(--muted); text-transform: uppercase; display: block; margin-top: 12px; }
         .item-box { padding: 16px; margin-bottom: 4px; border-radius: 12px; }
-        .item-box:nth-child(odd) { background: #f8fafc; }
-        .item-box:nth-child(even) { background: #ffffff; }
+        .item-box:nth-child(odd) { background: var(--item-odd); }
+        .item-box:nth-child(even) { background: var(--item-even); }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
         .scan-confirm { text-align: center; padding: 20px 0; }
         .scan-confirm .checkmark { font-size: 2.5rem; animation: pop-in 0.3s ease; }
         .scan-confirm .count { font-size: 1.1rem; font-weight: 700; color: #10b981; margin-top: 8px; }
-        .scan-confirm .hint { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; }
+        .scan-confirm .hint { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
         @keyframes pop-in { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
 
         .receipt-thumb { width: 80px; height: auto; border-radius: 10px; border: 2px solid var(--border); margin: 12px auto; display: block; }
@@ -51,13 +53,40 @@
         .toast.toast-success { background: #e6f4ea; color: #137333; }
         .toast.toast-error { background: #fce8e6; color: #c5221f; }
         .toast.toast-info { background: #e8f0fe; color: #1967d2; }
+        .toast.toast-warn { background: #fef3cd; color: #856404; }
+
+        /* Category chips */
+        .chip-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .chip { padding: 6px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: var(--input-bg); color: var(--text); transition: all 0.15s ease; user-select: none; }
+        .chip:active { transform: scale(0.93); }
+        .chip.selected { background: var(--accent); color: white; border-color: var(--accent); }
+
+        /* History section */
+        .history-toggle { font-size: 0.8rem; font-weight: 700; color: var(--accent); cursor: pointer; text-align: center; padding: 10px; }
+        .history-list { max-height: 300px; overflow-y: auto; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .history-item:last-child { border-bottom: none; }
+        .history-store { font-weight: 700; font-size: 0.9rem; }
+        .history-meta { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+        .history-badge { background: var(--item-odd); border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: 700; color: var(--muted); }
+
+        /* Duplicate warning */
+        .dupe-warning { background: #fef3cd; border: 1px solid #ffc107; border-radius: 12px; padding: 12px 16px; margin-bottom: 15px; font-size: 0.82rem; font-weight: 600; color: #856404; display: none; }
+        [data-theme="dark"] .dupe-warning { background: #3d2e00; border-color: #ffc107; color: #ffc107; }
+
+        /* Dark mode toggle */
+        .theme-btn { background: var(--item-odd); border: 1px solid var(--border); color: var(--muted); font-size: 1rem; padding: 6px 10px; border-radius: 8px; cursor: pointer; transition: transform 0.15s ease; line-height: 1; }
+        .theme-btn:active { transform: scale(0.9); }
     </style>
 </head>
 <body>
 
     <div class="app-header">
         <span class="app-title">RECEIPT SCANNER PRO</span>
-        <button class="config-btn" onclick="document.getElementById('config').toggleAttribute('hidden')">SETTINGS</button>
+        <div class="header-buttons">
+            <button class="theme-btn" id="themeToggle" onclick="toggleTheme()"></button>
+            <button class="config-btn" onclick="document.getElementById('config').toggleAttribute('hidden')">SETTINGS</button>
+        </div>
     </div>
 
     <div id="config" class="card" hidden>
@@ -67,17 +96,19 @@
     </div>
 
     <div class="card">
-        <label for="fileIn" class="btn primary">📷 SCAN NEW RECEIPT</label>
+        <label for="fileIn" class="btn primary">SCAN NEW RECEIPT</label>
         <input type="file" id="fileIn" accept="image/*" capture="environment" style="display:none">
         <div id="scanStatus" class="scan-confirm" style="display:none;"></div>
     </div>
+
+    <div id="dupeWarning" class="dupe-warning"></div>
 
     <div id="editor" style="display:none;">
         <div class="card">
             <img id="receiptThumb" class="receipt-thumb" style="display:none;">
             <div class="grid-2">
-                <div><label>Date</label><input type="date" id="date"></div>
-                <div><label>Store</label><input type="text" id="store"></div>
+                <div><label>Date</label><input type="date" id="date" oninput="checkDuplicate()"></div>
+                <div><label>Store</label><input type="text" id="store" oninput="checkDuplicate()"></div>
             </div>
             <label>Payment Method</label><input type="text" id="pay" list="payHistory" placeholder="Select payment..."><datalist id="payHistory"></datalist>
             <div class="grid-2">
@@ -87,7 +118,13 @@
         </div>
         <div id="itemList" class="card"></div>
         <button class="btn" style="background:#64748b; color:white; margin-top:15px;" onclick="addBlankItem()">+ ADD ITEM</button>
-        <button class="btn success" onclick="sync()">🚀 SYNC TO MASTER LOG</button>
+        <button class="btn success" onclick="sync()">SYNC TO MASTER LOG</button>
+    </div>
+
+    <!-- History section -->
+    <div id="historySection" class="card" style="display:none;">
+        <div class="history-toggle" onclick="toggleHistory()">RECENT SYNCS <span id="historyArrow">&#9660;</span></div>
+        <div id="historyList" class="history-list" style="display:none;"></div>
     </div>
 
     <div id="toast" class="toast"></div>
@@ -96,6 +133,116 @@
         import { GoogleGenerativeAI } from "@google/generative-ai";
         let capturedCount = 0;
 
+        const DEFAULT_CATEGORIES = ['Groceries', 'Household', 'Health', 'Electronics', 'Clothing', 'Auto', 'Pet', 'Office'];
+
+        // --- Theme ---
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+            localStorage.setItem('theme', theme);
+        }
+        window.toggleTheme = () => {
+            const current = localStorage.getItem('theme') || 'light';
+            applyTheme(current === 'dark' ? 'light' : 'dark');
+        };
+        applyTheme(localStorage.getItem('theme') || 'light');
+
+        // --- History ---
+        function getHistory() {
+            try { return JSON.parse(localStorage.getItem('sync_history') || '[]'); }
+            catch { return []; }
+        }
+        function saveToHistory(payload) {
+            const history = getHistory();
+            const totalPrice = payload.items.reduce((sum, it) => sum + (parseFloat(it.totalPrice) || 0), 0);
+            history.unshift({
+                date: payload.date,
+                store: payload.store,
+                itemCount: payload.items.length,
+                total: totalPrice.toFixed(2),
+                syncedAt: new Date().toISOString()
+            });
+            if (history.length > 50) history.length = 50;
+            localStorage.setItem('sync_history', JSON.stringify(history));
+            renderHistory();
+        }
+        function renderHistory() {
+            const history = getHistory();
+            const section = document.getElementById('historySection');
+            if (history.length === 0) { section.style.display = 'none'; return; }
+            section.style.display = 'block';
+            const list = document.getElementById('historyList');
+            list.innerHTML = history.map(h => {
+                const d = new Date(h.syncedAt);
+                const timeStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                return `<div class="history-item"><div><div class="history-store">${escHtml(h.store || 'Unknown')}</div><div class="history-meta">${escHtml(h.date)} &middot; ${h.itemCount} item${h.itemCount !== 1 ? 's' : ''} &middot; $${h.total}</div><div class="history-meta">${timeStr}</div></div><div class="history-badge">SYNCED</div></div>`;
+            }).join('');
+        }
+        window.toggleHistory = () => {
+            const list = document.getElementById('historyList');
+            const arrow = document.getElementById('historyArrow');
+            if (list.style.display === 'none') { list.style.display = 'block'; arrow.innerHTML = '&#9650;'; }
+            else { list.style.display = 'none'; arrow.innerHTML = '&#9660;'; }
+        };
+        function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        renderHistory();
+
+        // --- Duplicate Detection ---
+        window.checkDuplicate = () => {
+            const date = document.getElementById('date').value;
+            const store = document.getElementById('store').value.trim().toLowerCase();
+            const warning = document.getElementById('dupeWarning');
+            if (!date || !store) { warning.style.display = 'none'; return; }
+            const history = getHistory();
+            const match = history.find(h => h.date === date && (h.store || '').toLowerCase() === store);
+            if (match) {
+                warning.textContent = `Possible duplicate: you synced ${match.itemCount} items from "${match.store}" on ${match.date}.`;
+                warning.style.display = 'block';
+            } else {
+                warning.style.display = 'none';
+            }
+        };
+
+        // --- Category Chips ---
+        function getFrequentCategories() {
+            try {
+                const freq = JSON.parse(localStorage.getItem('category_freq') || '{}');
+                const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).map(e => e[0]);
+                if (sorted.length >= 4) return sorted.slice(0, 8);
+            } catch {}
+            return DEFAULT_CATEGORIES;
+        }
+        function trackCategory(cat) {
+            if (!cat.trim()) return;
+            const freq = JSON.parse(localStorage.getItem('category_freq') || '{}');
+            freq[cat.trim()] = (freq[cat.trim()] || 0) + 1;
+            localStorage.setItem('category_freq', JSON.stringify(freq));
+        }
+        function createCategoryChips(inputId) {
+            const container = document.createElement('div');
+            container.className = 'chip-container';
+            const categories = getFrequentCategories();
+            categories.forEach(cat => {
+                const chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.textContent = cat;
+                chip.onclick = () => {
+                    const input = document.getElementById(inputId);
+                    const wasSelected = chip.classList.contains('selected');
+                    container.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+                    if (!wasSelected) {
+                        chip.classList.add('selected');
+                        input.value = cat;
+                    } else {
+                        input.value = '';
+                    }
+                };
+                container.appendChild(chip);
+            });
+            return container;
+        }
+
+        // --- Config ---
         document.getElementById('key').value = localStorage.getItem('gemini_key') || '';
         document.getElementById('url').value = localStorage.getItem('script_url') || '';
 
@@ -168,6 +315,7 @@
 
                     document.getElementById('date').value = data.date || "";
                     document.getElementById('store').value = data.store || "";
+                    checkDuplicate();
                     const list = document.getElementById('itemList');
                     list.textContent = "";
                     capturedCount = data.items.length;
@@ -177,44 +325,7 @@
                         let tVal = it.totalPrice || "";
                         let uVal = it.unitPrice || "";
                         if ((qVal === "1" || qVal === "") && uVal === "") { uVal = tVal; }
-
-                        const itemBox = document.createElement('div');
-                        itemBox.className = 'item-box';
-                        itemBox.id = 'item-box-' + i;
-
-                        const header = document.createElement('div');
-                        header.style.cssText = "display:flex; justify-content:space-between; align-items:center;";
-                        const itemLabel = document.createElement('label');
-                        itemLabel.textContent = "Item " + (i + 1);
-                        const delBtn = document.createElement('button');
-                        delBtn.textContent = "×";
-                        delBtn.style.cssText = "background:#fee2e2; color:#dc2626; border:none; border-radius:8px; width:28px; height:28px; font-size:1.1rem; cursor:pointer; font-weight:bold;";
-                        delBtn.onclick = () => { itemBox.remove(); };
-                        header.appendChild(itemLabel);
-                        header.appendChild(delBtn);
-                        itemBox.appendChild(header);
-
-                        const row1 = document.createElement('div');
-                        row1.style.cssText = "display:grid; grid-template-columns: 1fr 2fr; gap:8px;";
-                        const noInput = createInput("no-" + i, it.itemNo || "", "SKU");
-                        const descInput = createInput("desc-" + i, it.desc || "", "Description");
-                        row1.appendChild(noInput);
-                        row1.appendChild(descInput);
-                        itemBox.appendChild(row1);
-
-                        const row2 = document.createElement('div');
-                        row2.className = 'grid-3';
-                        row2.appendChild(labeledInput("Qty", "qty-" + i, qVal));
-                        row2.appendChild(labeledInput("Unit $", "uPrice-" + i, uVal));
-                        row2.appendChild(labeledInput("Total $", "tPrice-" + i, tVal));
-                        itemBox.appendChild(row2);
-
-                        const catLabel = document.createElement('label');
-                        catLabel.textContent = "Category";
-                        itemBox.appendChild(catLabel);
-                        itemBox.appendChild(createInput("cat-" + i, "", "Category"));
-
-                        list.appendChild(itemBox);
+                        buildItemBox(list, i, it.itemNo || "", it.desc || "", qVal, uVal, tVal);
                     });
 
                     document.getElementById('editor').style.display = 'block';
@@ -244,11 +355,7 @@
             return wrapper;
         }
 
-        window.addBlankItem = () => {
-            const list = document.getElementById('itemList');
-            const i = capturedCount;
-            capturedCount++;
-
+        function buildItemBox(list, i, itemNo, desc, qty, unitPrice, totalPrice) {
             const itemBox = document.createElement('div');
             itemBox.className = 'item-box';
             itemBox.id = 'item-box-' + i;
@@ -256,7 +363,7 @@
             const header = document.createElement('div');
             header.style.cssText = "display:flex; justify-content:space-between; align-items:center;";
             const itemLabel = document.createElement('label');
-            itemLabel.textContent = "Item " + capturedCount;
+            itemLabel.textContent = "Item " + (i + 1);
             const delBtn = document.createElement('button');
             delBtn.textContent = "×";
             delBtn.style.cssText = "background:#fee2e2; color:#dc2626; border:none; border-radius:8px; width:28px; height:28px; font-size:1.1rem; cursor:pointer; font-weight:bold;";
@@ -267,23 +374,33 @@
 
             const row1 = document.createElement('div');
             row1.style.cssText = "display:grid; grid-template-columns: 1fr 2fr; gap:8px;";
-            row1.appendChild(createInput("no-" + i, "", "SKU"));
-            row1.appendChild(createInput("desc-" + i, "", "Description"));
+            row1.appendChild(createInput("no-" + i, itemNo, "SKU"));
+            row1.appendChild(createInput("desc-" + i, desc, "Description"));
             itemBox.appendChild(row1);
 
             const row2 = document.createElement('div');
             row2.className = 'grid-3';
-            row2.appendChild(labeledInput("Qty", "qty-" + i, "1"));
-            row2.appendChild(labeledInput("Unit $", "uPrice-" + i, ""));
-            row2.appendChild(labeledInput("Total $", "tPrice-" + i, ""));
+            row2.appendChild(labeledInput("Qty", "qty-" + i, qty));
+            row2.appendChild(labeledInput("Unit $", "uPrice-" + i, unitPrice));
+            row2.appendChild(labeledInput("Total $", "tPrice-" + i, totalPrice));
             itemBox.appendChild(row2);
 
             const catLabel = document.createElement('label');
             catLabel.textContent = "Category";
             itemBox.appendChild(catLabel);
-            itemBox.appendChild(createInput("cat-" + i, "", "Category"));
+            const catInputId = "cat-" + i;
+            const catInput = createInput(catInputId, "", "Category");
+            itemBox.appendChild(catInput);
+            itemBox.appendChild(createCategoryChips(catInputId));
 
             list.appendChild(itemBox);
+        }
+
+        window.addBlankItem = () => {
+            const list = document.getElementById('itemList');
+            const i = capturedCount;
+            capturedCount++;
+            buildItemBox(list, i, "", "", "1", "", "");
             document.getElementById('editor').style.display = 'block';
         };
 
@@ -312,6 +429,7 @@
                 const category = inputs[5] ? inputs[5].value : "";
                 if (desc.trim()) {
                     items.push({ itemNo, desc, qty, unitPrice, totalPrice, category });
+                    trackCategory(category);
                 }
             });
 
@@ -332,23 +450,28 @@
             showToast("Syncing...", "info");
 
             try {
-                await fetch(scriptUrl, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    redirect: 'follow',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(payload)
-                });
-                showToast(items.length + " items synced!", "success");
-                document.getElementById('editor').style.display = 'none';
-                document.getElementById('fileIn').value = '';
-                document.getElementById('scanStatus').style.display = 'none';
-                document.getElementById('receiptThumb').style.display = 'none';
+                const base = scriptUrl.trim().replace(/\/$/, '');
+                const syncUrl = base + "?action=sync&data=" + encodeURIComponent(JSON.stringify(payload));
+                const response = await fetch(syncUrl, { redirect: 'follow' });
+                const result = await response.json();
+                if (result.error) {
+                    showToast("Error: " + result.error, "error");
+                } else if (result.rowsAdded) {
+                    showToast(result.rowsAdded + " rows synced!", "success");
+                    saveToHistory(payload);
+                    document.getElementById('editor').style.display = 'none';
+                    document.getElementById('fileIn').value = '';
+                    document.getElementById('scanStatus').style.display = 'none';
+                    document.getElementById('receiptThumb').style.display = 'none';
+                    document.getElementById('dupeWarning').style.display = 'none';
+                } else {
+                    showToast("Unexpected response: " + JSON.stringify(result), "error");
+                }
             } catch (err) {
                 showToast("Sync failed: " + err.message, "error");
             }
         };
     </script>
-    <div style="text-align:center; margin-top:1.5rem; font-size:0.65rem; color:#94a3b8; font-weight:600;">V10.2.0</div>
+    <div style="text-align:center; margin-top:1.5rem; font-size:0.65rem; color:var(--muted); font-weight:600;">V11.0.0</div>
 </body>
 </html>
