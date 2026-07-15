@@ -139,17 +139,17 @@
         function applyTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
             document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
-            localStorage.setItem('theme', theme);
+            localStorage.setItem('rs_theme', theme);
         }
         window.toggleTheme = () => {
-            const current = localStorage.getItem('theme') || 'light';
+            const current = localStorage.getItem('rs_theme') || 'light';
             applyTheme(current === 'dark' ? 'light' : 'dark');
         };
-        applyTheme(localStorage.getItem('theme') || 'light');
+        applyTheme(localStorage.getItem('rs_theme') || 'light');
 
         // --- History ---
         function getHistory() {
-            try { return JSON.parse(localStorage.getItem('sync_history') || '[]'); }
+            try { return JSON.parse(localStorage.getItem('rs_sync_history') || '[]'); }
             catch { return []; }
         }
         function saveToHistory(payload) {
@@ -163,7 +163,7 @@
                 syncedAt: new Date().toISOString()
             });
             if (history.length > 50) history.length = 50;
-            localStorage.setItem('sync_history', JSON.stringify(history));
+            localStorage.setItem('rs_sync_history', JSON.stringify(history));
             renderHistory();
         }
         function renderHistory() {
@@ -206,7 +206,7 @@
         // --- Category Chips ---
         function getFrequentCategories() {
             try {
-                const freq = JSON.parse(localStorage.getItem('category_freq') || '{}');
+                const freq = JSON.parse(localStorage.getItem('rs_category_freq') || '{}');
                 const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).map(e => e[0]);
                 if (sorted.length >= 4) return sorted.slice(0, 8);
             } catch {}
@@ -214,9 +214,9 @@
         }
         function trackCategory(cat) {
             if (!cat.trim()) return;
-            const freq = JSON.parse(localStorage.getItem('category_freq') || '{}');
+            const freq = JSON.parse(localStorage.getItem('rs_category_freq') || '{}');
             freq[cat.trim()] = (freq[cat.trim()] || 0) + 1;
-            localStorage.setItem('category_freq', JSON.stringify(freq));
+            localStorage.setItem('rs_category_freq', JSON.stringify(freq));
         }
         function createCategoryChips(inputId) {
             const container = document.createElement('div');
@@ -243,10 +243,10 @@
         }
 
         // --- Config ---
-        document.getElementById('key').value = localStorage.getItem('gemini_key') || '';
-        document.getElementById('url').value = localStorage.getItem('script_url') || '';
+        document.getElementById('key').value = localStorage.getItem('rs_gemini_key') || '';
+        document.getElementById('url').value = localStorage.getItem('rs_script_url') || '';
 
-        if (!localStorage.getItem('script_url')) {
+        if (!localStorage.getItem('rs_script_url')) {
             document.getElementById('config').removeAttribute('hidden');
         }
 
@@ -264,8 +264,8 @@
         }
 
         window.saveConfig = () => {
-            localStorage.setItem('gemini_key', document.getElementById('key').value.trim());
-            localStorage.setItem('script_url', document.getElementById('url').value.trim());
+            localStorage.setItem('rs_gemini_key', document.getElementById('key').value.trim());
+            localStorage.setItem('rs_script_url', document.getElementById('url').value.trim());
             document.getElementById('config').setAttribute('hidden', '');
             showToast("Config saved!", "success");
         };
@@ -279,7 +279,7 @@
             const reader = new FileReader();
             reader.onloadend = async () => {
                 try {
-                    const apiKey = localStorage.getItem('gemini_key');
+                    const apiKey = localStorage.getItem('rs_gemini_key');
                     if (!apiKey) {
                         showToast("Set Gemini API key in Settings", "error");
                         document.getElementById('config').removeAttribute('hidden');
@@ -405,7 +405,7 @@
         };
 
         window.sync = async () => {
-            const scriptUrl = localStorage.getItem('script_url');
+            const scriptUrl = localStorage.getItem('rs_script_url');
             if (!scriptUrl) {
                 showToast("Set Apps Script URL in Settings", "error");
                 document.getElementById('config').removeAttribute('hidden');
