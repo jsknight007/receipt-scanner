@@ -34,32 +34,22 @@
         .item-box:nth-child(even) { background: var(--item-even); }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
         .scan-confirm { text-align: center; padding: 20px 0; }
         .scan-confirm .checkmark { font-size: 2.5rem; animation: pop-in 0.3s ease; }
         .scan-confirm .count { font-size: 1.1rem; font-weight: 700; color: #10b981; margin-top: 8px; }
         .scan-confirm .hint { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
         @keyframes pop-in { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
-
         .receipt-thumb { width: 80px; height: auto; border-radius: 10px; border: 2px solid var(--border); margin: 12px auto; display: block; }
-
-        .toast {
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
-            padding: 12px 24px; border-radius: 50px; font-size: 0.85rem; font-weight: 600;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; opacity: 0;
-            transition: transform 0.3s ease, opacity 0.3s ease; white-space: nowrap;
-        }
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); padding: 12px 24px; border-radius: 50px; font-size: 0.85rem; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; white-space: nowrap; }
         .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
         .toast.toast-success { background: #e6f4ea; color: #137333; }
         .toast.toast-error { background: #fce8e6; color: #c5221f; }
         .toast.toast-info { background: #e8f0fe; color: #1967d2; }
         .toast.toast-warn { background: #fef3cd; color: #856404; }
-
         .chip-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
         .chip { padding: 6px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: var(--input-bg); color: var(--text); transition: all 0.15s ease; user-select: none; }
         .chip:active { transform: scale(0.93); }
         .chip.selected { background: var(--accent); color: white; border-color: var(--accent); }
-
         .history-toggle { font-size: 0.8rem; font-weight: 700; color: var(--accent); cursor: pointer; text-align: center; padding: 10px; }
         .history-list { max-height: 300px; overflow-y: auto; }
         .history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
@@ -67,10 +57,8 @@
         .history-store { font-weight: 700; font-size: 0.9rem; }
         .history-meta { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
         .history-badge { background: var(--item-odd); border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: 700; color: var(--muted); }
-
         .dupe-warning { background: #fef3cd; border: 1px solid #ffc107; border-radius: 12px; padding: 12px 16px; margin-bottom: 15px; font-size: 0.82rem; font-weight: 600; color: #856404; display: none; }
         [data-theme="dark"] .dupe-warning { background: #3d2e00; border-color: #ffc107; color: #ffc107; }
-
         .theme-btn { background: var(--item-odd); border: 1px solid var(--border); color: var(--muted); font-size: 1rem; padding: 6px 10px; border-radius: 8px; cursor: pointer; transition: transform 0.15s ease; line-height: 1; }
         .theme-btn:active { transform: scale(0.9); }
     </style>
@@ -117,7 +105,6 @@
         <button class="btn success" onclick="sync()">SYNC TO MASTER LOG</button>
     </div>
 
-    <!-- History section -->
     <div id="historySection" class="card" style="display:none;">
         <div class="history-toggle" onclick="toggleHistory()">RECENT SYNCS <span id="historyArrow">&#9660;</span></div>
         <div id="historyList" class="history-list" style="display:none;"></div>
@@ -131,7 +118,6 @@
 
         const DEFAULT_CATEGORIES = ['Groceries', 'Household', 'Health', 'Electronics', 'Clothing', 'Auto', 'Pet', 'Office'];
 
-        // --- Theme ---
         function applyTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
             document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
@@ -143,7 +129,6 @@
         };
         applyTheme(localStorage.getItem('rs_theme') || 'light');
 
-        // --- History ---
         function getHistory() {
             try { return JSON.parse(localStorage.getItem('rs_sync_history') || '[]'); }
             catch { return []; }
@@ -151,13 +136,7 @@
         function saveToHistory(payload) {
             const history = getHistory();
             const totalPrice = payload.items.reduce((sum, it) => sum + (parseFloat(it.totalPrice) || 0), 0);
-            history.unshift({
-                date: payload.date,
-                store: payload.store,
-                itemCount: payload.items.length,
-                total: totalPrice.toFixed(2),
-                syncedAt: new Date().toISOString()
-            });
+            history.unshift({ date: payload.date, store: payload.store, itemCount: payload.items.length, total: totalPrice.toFixed(2), syncedAt: new Date().toISOString() });
             if (history.length > 50) history.length = 50;
             localStorage.setItem('rs_sync_history', JSON.stringify(history));
             renderHistory();
@@ -171,7 +150,7 @@
             list.innerHTML = history.map(h => {
                 const d = new Date(h.syncedAt);
                 const timeStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                return `<div class="history-item"><div><div class="history-store">${escHtml(h.store || 'Unknown')}</div><div class="history-meta">${escHtml(h.date)} &middot; ${h.itemCount} item${h.itemCount !== 1 ? 's' : ''} &middot; $${h.total}</div><div class="history-meta">${timeStr}</div></div><div class="history-badge">SYNCED</div></div>`;
+                return '<div class="history-item"><div><div class="history-store">' + escHtml(h.store || 'Unknown') + '</div><div class="history-meta">' + escHtml(h.date) + ' &middot; ' + h.itemCount + ' item' + (h.itemCount !== 1 ? 's' : '') + ' &middot; $' + h.total + '</div><div class="history-meta">' + timeStr + '</div></div><div class="history-badge">SYNCED</div></div>';
             }).join('');
         }
         window.toggleHistory = () => {
@@ -183,7 +162,6 @@
         function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
         renderHistory();
 
-        // --- Duplicate Detection ---
         window.checkDuplicate = () => {
             const date = document.getElementById('date').value;
             const store = document.getElementById('store').value.trim().toLowerCase();
@@ -192,14 +170,11 @@
             const history = getHistory();
             const match = history.find(h => h.date === date && (h.store || '').toLowerCase() === store);
             if (match) {
-                warning.textContent = `Possible duplicate: you synced ${match.itemCount} items from "${match.store}" on ${match.date}.`;
+                warning.textContent = 'Possible duplicate: you synced ' + match.itemCount + ' items from "' + match.store + '" on ' + match.date + '.';
                 warning.style.display = 'block';
-            } else {
-                warning.style.display = 'none';
-            }
+            } else { warning.style.display = 'none'; }
         };
 
-        // --- Category Chips ---
         function getFrequentCategories() {
             try {
                 const freq = JSON.parse(localStorage.getItem('rs_category_freq') || '{}');
@@ -226,25 +201,17 @@
                     const input = document.getElementById(inputId);
                     const wasSelected = chip.classList.contains('selected');
                     container.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
-                    if (!wasSelected) {
-                        chip.classList.add('selected');
-                        input.value = cat;
-                    } else {
-                        input.value = '';
-                    }
+                    if (!wasSelected) { chip.classList.add('selected'); input.value = cat; }
+                    else { input.value = ''; }
                 };
                 container.appendChild(chip);
             });
             return container;
         }
 
-        // --- Config ---
         document.getElementById('key').value = localStorage.getItem('rs_gemini_key') || '';
         document.getElementById('url').value = localStorage.getItem('rs_script_url') || '';
-
-        if (!localStorage.getItem('rs_script_url')) {
-            document.getElementById('config').removeAttribute('hidden');
-        }
+        if (!localStorage.getItem('rs_script_url')) { document.getElementById('config').removeAttribute('hidden'); }
 
         async function fetchWithRetry(url, opts = {}) {
             try { return await fetch(url, opts); }
@@ -257,6 +224,19 @@
             toast.className = 'toast toast-' + type;
             requestAnimationFrame(() => { toast.classList.add('visible'); });
             setTimeout(() => { toast.classList.remove('visible'); }, 3500);
+        }
+
+        function safeEncodeUri(str) {
+            try { return encodeURIComponent(str); }
+            catch (e) {
+                var clean = '';
+                for (var i = 0; i < str.length; i++) {
+                    var code = str.charCodeAt(i);
+                    if (code >= 0xD800 && code <= 0xDFFF) continue;
+                    clean += str[i];
+                }
+                return encodeURIComponent(clean);
+            }
         }
 
         window.saveConfig = () => {
@@ -290,18 +270,10 @@
                     const result = await model.generateContent([prompt, { inlineData: { data: reader.result.split(',')[1], mimeType: "image/jpeg" } }]);
                     const responseText = result.response.text().trim();
                     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-                    if (!jsonMatch) {
-                        showToast("Could not extract data from receipt", "error");
-                        scanStatus.style.display = 'none';
-                        return;
-                    }
+                    if (!jsonMatch) { showToast("Could not extract data from receipt", "error"); scanStatus.style.display = 'none'; return; }
 
                     const data = JSON.parse(jsonMatch[0]);
-                    if (!data.items || !Array.isArray(data.items)) {
-                        showToast("No items found in receipt", "error");
-                        scanStatus.style.display = 'none';
-                        return;
-                    }
+                    if (!data.items || !Array.isArray(data.items)) { showToast("No items found in receipt", "error"); scanStatus.style.display = 'none'; return; }
 
                     scanStatus.innerHTML = '<div class="checkmark">&#10003;</div><div class="count">' + data.items.length + ' items found</div><div class="hint">Review items below</div>';
 
@@ -325,23 +297,16 @@
                     });
 
                     document.getElementById('editor').style.display = 'block';
-                } catch (err) {
-                    showToast("Error: " + err.message, "error");
-                    scanStatus.style.display = 'none';
-                }
+                } catch (err) { showToast("Error: " + err.message, "error"); scanStatus.style.display = 'none'; }
             };
             reader.readAsDataURL(file);
         };
 
         function createInput(id, value, placeholder) {
             const input = document.createElement('input');
-            input.type = 'text';
-            input.id = id;
-            input.value = value;
-            input.placeholder = placeholder;
+            input.type = 'text'; input.id = id; input.value = value; input.placeholder = placeholder;
             return input;
         }
-
         function labeledInput(labelText, id, value) {
             const wrapper = document.createElement('div');
             const lbl = document.createElement('label');
@@ -355,32 +320,28 @@
             const itemBox = document.createElement('div');
             itemBox.className = 'item-box';
             itemBox.id = 'item-box-' + i;
-
             const header = document.createElement('div');
             header.style.cssText = "display:flex; justify-content:space-between; align-items:center;";
             const itemLabel = document.createElement('label');
             itemLabel.textContent = "Item " + (i + 1);
             const delBtn = document.createElement('button');
-            delBtn.textContent = "×";
+            delBtn.textContent = String.fromCharCode(215);
             delBtn.style.cssText = "background:#fee2e2; color:#dc2626; border:none; border-radius:8px; width:28px; height:28px; font-size:1.1rem; cursor:pointer; font-weight:bold;";
             delBtn.onclick = () => { itemBox.remove(); };
             header.appendChild(itemLabel);
             header.appendChild(delBtn);
             itemBox.appendChild(header);
-
             const row1 = document.createElement('div');
             row1.style.cssText = "display:grid; grid-template-columns: 1fr 2fr; gap:8px;";
             row1.appendChild(createInput("no-" + i, itemNo, "SKU"));
             row1.appendChild(createInput("desc-" + i, desc, "Description"));
             itemBox.appendChild(row1);
-
             const row2 = document.createElement('div');
             row2.className = 'grid-3';
             row2.appendChild(labeledInput("Qty", "qty-" + i, qty));
             row2.appendChild(labeledInput("Unit $", "uPrice-" + i, unitPrice));
             row2.appendChild(labeledInput("Total $", "tPrice-" + i, totalPrice));
             itemBox.appendChild(row2);
-
             const catLabel = document.createElement('label');
             catLabel.textContent = "Category";
             itemBox.appendChild(catLabel);
@@ -388,7 +349,6 @@
             const catInput = createInput(catInputId, "", "Category");
             itemBox.appendChild(catInput);
             itemBox.appendChild(createCategoryChips(catInputId));
-
             list.appendChild(itemBox);
         }
 
@@ -400,22 +360,10 @@
             document.getElementById('editor').style.display = 'block';
         };
 
-        function sanitizeForUrl(str) {
-            return str.replace(/[\uD800-\uDFFF]/g, '').replace(/[ --]/g, '');
-        }
-
         window.sync = async () => {
             const scriptUrl = localStorage.getItem('rs_script_url');
-            if (!scriptUrl) {
-                showToast("Set Apps Script URL in Settings", "error");
-                document.getElementById('config').removeAttribute('hidden');
-                return;
-            }
-
-            if (!document.getElementById('date').value) {
-                showToast("Date is required", "error");
-                return;
-            }
+            if (!scriptUrl) { showToast("Set Apps Script URL in Settings", "error"); document.getElementById('config').removeAttribute('hidden'); return; }
+            if (!document.getElementById('date').value) { showToast("Date is required", "error"); return; }
 
             const items = [];
             const itemBoxes = document.querySelectorAll('.item-box');
@@ -427,16 +375,10 @@
                 const unitPrice = inputs[3] ? inputs[3].value : "";
                 const totalPrice = inputs[4] ? inputs[4].value : "";
                 const category = inputs[5] ? inputs[5].value : "";
-                if (desc.trim()) {
-                    items.push({ itemNo, desc, qty, unitPrice, totalPrice, category });
-                    trackCategory(category);
-                }
+                if (desc.trim()) { items.push({ itemNo, desc, qty, unitPrice, totalPrice, category }); trackCategory(category); }
             });
 
-            if (items.length === 0) {
-                showToast("At least one item needs a description", "error");
-                return;
-            }
+            if (items.length === 0) { showToast("At least one item needs a description", "error"); return; }
 
             const payload = {
                 date: document.getElementById('date').value,
@@ -451,8 +393,7 @@
 
             try {
                 const base = scriptUrl.trim().replace(/\/$/, '');
-                const jsonData = sanitizeForUrl(JSON.stringify(payload));
-                const syncUrl = base + "?action=sync&data=" + encodeURIComponent(jsonData);
+                const syncUrl = base + "?action=sync&data=" + safeEncodeUri(JSON.stringify(payload));
                 const response = await fetch(syncUrl, { redirect: 'follow' });
                 const result = await response.json();
                 if (result.error) {
@@ -468,9 +409,7 @@
                 } else {
                     showToast("Unexpected response: " + JSON.stringify(result), "error");
                 }
-            } catch (err) {
-                showToast("Sync failed: " + err.message, "error");
-            }
+            } catch (err) { showToast("Sync failed: " + err.message, "error"); }
         };
     </script>
     <script>
