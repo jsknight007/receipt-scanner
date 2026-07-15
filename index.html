@@ -393,9 +393,13 @@
 
             try {
                 const base = scriptUrl.trim().replace(/\/$/, '');
-                const syncUrl = base + "?action=sync&data=" + safeEncodeUri(JSON.stringify(payload));
-                const response = await fetch(syncUrl, { redirect: 'follow' });
-                const result = await response.json();
+                const postResp = await fetch(base, {
+                    method: 'POST',
+                    redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await postResp.json();
                 if (result.error) {
                     showToast("Error: " + result.error, "error");
                 } else if (result.rowsAdded) {
@@ -425,6 +429,6 @@
         });
     }
     </script>
-    <div id="app-version" style="text-align:center; margin-top:1.5rem; font-size:0.65rem; color:var(--muted); font-weight:600;">V11.2.0</div>
+    <div id="app-version" style="text-align:center; margin-top:1.5rem; font-size:0.65rem; color:var(--muted); font-weight:600;">V11.3.0</div>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const APP_VERSION = '11.2.0';
+const APP_VERSION = '11.3.0';
 const CACHE_NAME = 'receipt-scanner-v' + APP_VERSION;
 const SHELL_FILES = ['index.html', 'manifest.json'];
 
