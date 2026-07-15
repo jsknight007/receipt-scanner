@@ -451,7 +451,8 @@
 
             try {
                 const base = scriptUrl.trim().replace(/\/$/, '');
-                const syncUrl = base + "?action=sync&data=" + encodeURIComponent(JSON.stringify(payload));
+                const jsonStr = JSON.stringify(payload).replace(/[\uD800-\uDFFF]/g, '');
+                const syncUrl = base + "?action=sync&data=" + encodeURIComponent(jsonStr);
                 const response = await fetch(syncUrl, { redirect: 'follow' });
                 const result = await response.json();
                 if (result.error) {
@@ -485,6 +486,6 @@
         });
     }
     </script>
-    <div id="app-version" style="text-align:center; margin-top:1.5rem; font-size:0.65rem; color:var(--muted); font-weight:600;">V11.1.0</div>
+    <div id="app-version" style="text-align:center; margin-top:1.5rem; font-size:0.65rem; color:var(--muted); font-weight:600;">V11.2.0</div>
 </body>
 </html>
